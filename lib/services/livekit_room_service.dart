@@ -100,11 +100,12 @@ class LiveKitRoomService extends ChangeNotifier {
 
     try {
       final wsUrl = url ?? LiveKitConfig.wsUrl;
-      final jwtToken = token ??
-          LiveKitTokenGenerator.generateToken(
-            roomName: roomName,
-            participantName: '$participantName-${DateTime.now().millisecondsSinceEpoch}',
-          );
+      final jwtToken = (token != null && token.isNotEmpty)
+          ? token
+          : LiveKitTokenGenerator.generateToken(
+              roomName: roomName,
+              participantName: '$participantName-${DateTime.now().millisecondsSinceEpoch}',
+            );
 
       _listener?.dispose();
       _listener = _room.createListener();
@@ -131,6 +132,9 @@ class LiveKitRoomService extends ChangeNotifier {
       _connected = false;
       _connecting = false;
       _errorMessage = e.toString();
+      await _listener?.dispose();
+      _listener = null;
+      try { await _room.disconnect(); } catch (_) {}
       notifyListeners();
       if (kDebugMode) print('LiveKit connect error: $e');
     }
@@ -184,6 +188,7 @@ class LiveKitRoomService extends ChangeNotifier {
     _connected = false;
     _connecting = false;
     await _listener?.dispose();
+    _listener = null;
     await _room.disconnect();
     notifyListeners();
   }

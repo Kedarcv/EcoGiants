@@ -1,27 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:deep_waste/constants/size_config.dart';
-import 'package:deep_waste/services/api_service.dart';
-import 'package:deep_waste/services/livekit_config.dart';
-import 'package:deep_waste/services/livekit_room_service.dart';
+import 'package:deep_waste/services/gemini_live_service.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:livekit_client/livekit_client.dart' as lk;
-
-/// ---------------------------------------------------------------------
-/// Live AI Tutor — Voice-only conversation with the EcoBot agent.
-///
-/// The agent (Python LiveKit worker) handles:
-///   • Speech-to-text (student's mic → text)
-///   • LLM reasoning (NVIDIA Llama)
-///   • Text-to-speech (response → audio track)
-///
-/// This screen just:
-///   • Connects to LiveKit with a JWT
-///   • Enables the local mic
-///   • Subscribes to the agent's audio track
-///   • Shows UI state (connecting / listening / agent speaking)
-/// ---------------------------------------------------------------------
 
 enum AgentUiState { idle, connecting, listening, agentSpeaking, error }
 
@@ -42,14 +27,19 @@ class LiveAiScreen extends StatefulWidget {
 
 class _LiveAiScreenState extends State<LiveAiScreen>
     with SingleTickerProviderStateMixin {
-  final LiveKitRoomService _roomService = LiveKitRoomService();
+  final GeminiLiveService _geminiService = GeminiLiveService();
+  final AudioRecorder _recorder = AudioRecorder();
+  final AudioPlayer _player = AudioPlayer();
 
   AgentUiState _state = AgentUiState.idle;
   bool _micEnabled = true;
   String _statusText = 'Tap the button to talk to Eco';
   String? _errorText;
+  StreamSubscription<Uint8List>? _audioSub;
+  StreamSubscription<Map<String, dynamic>>? _eventSub;
+  StreamSubscription<RecordState>? _recordStateSub;
+  bool _isRecording = false;
 
-  // Pulse animation for agent speaking
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
@@ -64,37 +54,33 @@ class _LiveAiScreenState extends State<LiveAiScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _roomService.addListener(_onRoomEvent);
+    _geminiService.addListener(_onServiceEvent);
+    _audioSub = _geminiService.audioOutput.listen(_onAudioOutput);
+    _eventSub = _geminiService.events.listen(_onEvent);
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
-    _roomService.removeListener(_onRoomEvent);
-    _roomService.dispose();
+    _audioSub?.cancel();
+    _eventSub?.cancel();
+    _recordStateSub?.cancel();
+    _recorder.dispose();
+    _player.dispose();
+    _geminiService.removeListener(_onServiceEvent);
+    _geminiService.dispose();
     super.dispose();
   }
 
-  void _onRoomEvent() {
+  void _onServiceEvent() {
     if (!mounted) return;
-
-    if (_roomService.isConnected) {
-      // Check if any remote participant (the agent) is speaking
-      final agentSpeaking = _roomService.participants.any(
-        (p) => p != _roomService.localParticipant && p.isSpeaking,
-      );
-
+    if (_geminiService.isConnected) {
       setState(() {
-        if (agentSpeaking) {
-          _state = AgentUiState.agentSpeaking;
-          _statusText = 'Eco is speaking…';
-        } else if (_state != AgentUiState.connecting &&
-            _state != AgentUiState.error) {
-          _state = AgentUiState.listening;
-          _statusText = 'Listening — ask Eco anything!';
-        }
+        _state = AgentUiState.listening;
+        _statusText = 'Listening — ask Eco anything!';
       });
-    } else if (!_roomService.isConnecting && _state != AgentUiState.idle) {
+      _startRecording();
+    } else if (!_geminiService.isConnecting && _state != AgentUiState.idle) {
       setState(() {
         _state = AgentUiState.idle;
         _statusText = 'Call ended';
@@ -102,18 +88,72 @@ class _LiveAiScreenState extends State<LiveAiScreen>
     }
   }
 
-  // ── Connect / Disconnect ──────────────────────────────────────
+  void _onAudioOutput(Uint8List data) {
+    _player.setAudioSource(AudioSource.bytes(data));
+  }
+
+  void _onEvent(Map<String, dynamic> event) {
+    if (!mounted) return;
+    final type = event['type'] as String?;
+    if (type == 'user') {
+      setState(() => _statusText = 'You said: ${event['text']}');
+    } else if (type == 'gemini') {
+      setState(() {
+        _state = AgentUiState.agentSpeaking;
+        _statusText = 'Eco: ${event['text']}';
+      });
+    } else if (type == 'turn_complete') {
+      setState(() => _state = AgentUiState.listening);
+      _startRecording();
+    } else if (type == 'interrupted') {
+      setState(() => _state = AgentUiState.listening);
+    } else if (type == 'error') {
+      setState(() {
+        _state = AgentUiState.error;
+        _errorText = event['error'] as String?;
+      });
+    }
+  }
 
   Future<bool> _ensureMicPermission() async {
     var status = await Permission.microphone.status;
-
     if (status.isGranted) return true;
-
     status = await Permission.microphone.request();
+    return status.isGranted;
+  }
 
-    if (status.isGranted) return true;
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+    if (!await _ensureMicPermission()) return;
 
-    return false;
+    try {
+      _isRecording = true;
+      final stream = await _recorder.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          numChannels: 1,
+          sampleRate: 16000,
+        ),
+      );
+      _recordStateSub = stream.listen(
+        (data) {
+          if (_geminiService.isConnected && _micEnabled) {
+            _geminiService.sendAudio(data);
+          }
+        },
+        onError: (e) => debugPrint('Record error: $e'),
+      );
+    } catch (e) {
+      debugPrint('Failed to start recording: $e');
+      _isRecording = false;
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    _isRecording = false;
+    await _recordStateSub?.cancel();
+    _recordStateSub = null;
+    await _recorder.stop();
   }
 
   Future<void> _connect() async {
@@ -138,36 +178,19 @@ class _LiveAiScreenState extends State<LiveAiScreen>
       final prefs = await SharedPreferences.getInstance();
       final studentNumber = prefs.getString('student_number') ?? 'anonymous';
 
-      final creds = await ApiService.instance.getLiveKitToken(
-        studentNumber: studentNumber,
-      );
+      await _geminiService.connect(studentNumber: studentNumber)
+          .timeout(const Duration(seconds: 20));
 
-      if (creds == null) {
-        setState(() {
-          _state = AgentUiState.error;
-          _errorText = 'Could not connect to server. Please try again.';
-        });
-        return;
-      }
-
-      await _roomService.connect(
-        url: creds['url'] ?? LiveKitConfig.wsUrl,
-        token: creds['token'],
-        roomName: creds['room'] ?? 'eco-giant-room',
-        participantName: 'student-$studentNumber',
-        micEnabled: widget.microphoneOn,
-      );
-
-      if (_roomService.isConnected) {
+      if (_geminiService.isConnected) {
         setState(() {
           _state = AgentUiState.listening;
           _micEnabled = widget.microphoneOn;
           _statusText = 'Say hello to Eco!';
         });
-      } else if (_roomService.errorMessage != null) {
+      } else if (_geminiService.errorMessage != null) {
         setState(() {
           _state = AgentUiState.error;
-          _errorText = _roomService.errorMessage;
+          _errorText = _geminiService.errorMessage;
         });
       }
     } catch (e) {
@@ -179,13 +202,15 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   }
 
   Future<void> _toggleMic() async {
-    await _roomService.toggleMicrophone();
-    setState(() {
-      _micEnabled = !_micEnabled;
-    });
+    _micEnabled = !_micEnabled;
+    if (_micEnabled) {
+      await _startRecording();
+    } else {
+      await _stopRecording();
+    }
+    setState(() {});
   }
 
-  /// Shows a dialog to request microphone permission and returns true if granted
   Future<bool> _showPermissionDialogAndRequest() async {
     final result = await showDialog<bool>(
       context: context,
@@ -215,7 +240,8 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   }
 
   Future<void> _disconnect() async {
-    await _roomService.disconnect();
+    await _stopRecording();
+    await _geminiService.disconnect();
     if (mounted) {
       setState(() {
         _state = AgentUiState.idle;
@@ -223,8 +249,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
       });
     }
   }
-
-  // ── Build ────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -237,10 +261,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
             _buildTopBar(),
-
-            // Main area — avatar + status
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -273,8 +294,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                 ),
               ),
             ),
-
-            // Bottom controls
             _buildControls(connected),
           ],
         ),
@@ -305,17 +324,16 @@ class _LiveAiScreenState extends State<LiveAiScreen>
               ),
             ),
           ),
-          // Connection indicator
           Container(
             width: 10,
             height: 10,
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: _roomService.isConnected ? Colors.green : Colors.red,
+              color: _geminiService.isConnected ? Colors.green : Colors.red,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (_roomService.isConnected ? Colors.green : Colors.red)
+                  color: (_geminiService.isConnected ? Colors.green : Colors.red)
                       .withOpacity(0.5),
                   blurRadius: 6,
                 ),
@@ -415,7 +433,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
           : Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Mic toggle
                 Container(
                   width: 64,
                   height: 64,
@@ -441,7 +458,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                   ),
                 ),
                 const SizedBox(width: 32),
-                // End call
                 Container(
                   width: 64,
                   height: 64,
