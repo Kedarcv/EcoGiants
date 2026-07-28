@@ -1,23 +1,23 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/services/gemini_live_service.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
+import 'package:flutter_sound/flutter_sound.dart' hide AudioSource;
+import 'package:path_provider/path_provider.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AgentUiState { idle, connecting, listening, agentSpeaking, error }
 
 class LiveAiScreen extends StatefulWidget {
   static const String routeName = '/live_ai';
-  final bool cameraOn;
   final bool microphoneOn;
 
   const LiveAiScreen({
     super.key,
-    this.cameraOn = true,
     this.microphoneOn = true,
   });
 
@@ -28,17 +28,13 @@ class LiveAiScreen extends StatefulWidget {
 class _LiveAiScreenState extends State<LiveAiScreen>
     with SingleTickerProviderStateMixin {
   final GeminiLiveService _geminiService = GeminiLiveService();
-  final AudioRecorder _recorder = AudioRecorder();
   final AudioPlayer _player = AudioPlayer();
 
   AgentUiState _state = AgentUiState.idle;
   bool _micEnabled = true;
   String _statusText = 'Tap the button to talk to Eco';
   String? _errorText;
-  StreamSubscription<Uint8List>? _audioSub;
   StreamSubscription<Map<String, dynamic>>? _eventSub;
-  StreamSubscription<RecordState>? _recordStateSub;
-  bool _isRecording = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -54,65 +50,49 @@ class _LiveAiScreenState extends State<LiveAiScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _geminiService.addListener(_onServiceEvent);
-    _audioSub = _geminiService.audioOutput.listen(_onAudioOutput);
     _eventSub = _geminiService.events.listen(_onEvent);
+    _geminiService.audioOutput.listen(_onAudioOutput);
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
-    _audioSub?.cancel();
     _eventSub?.cancel();
-    _recordStateSub?.cancel();
-    _recorder.dispose();
-    _player.dispose();
-    _geminiService.removeListener(_onServiceEvent);
     _geminiService.dispose();
+    _player.dispose();
     super.dispose();
   }
 
-  void _onServiceEvent() {
-    if (!mounted) return;
-    if (_geminiService.isConnected) {
-      setState(() {
-        _state = AgentUiState.listening;
-        _statusText = 'Listening — ask Eco anything!';
-      });
-      _startRecording();
-    } else if (!_geminiService.isConnecting && _state != AgentUiState.idle) {
-      setState(() {
-        _state = AgentUiState.idle;
-        _statusText = 'Call ended';
-      });
+  Future<void> _onAudioOutput(Uint8List data) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/eco_${DateTime.now().millisecondsSinceEpoch}.wav');
+      await file.writeAsBytes(data);
+      await _player.setAudioSource(AudioSource.file(file.path));
+      _player.play();
+    } catch (e) {
+      debugPrint('Audio playback error: $e');
     }
-  }
-
-  void _onAudioOutput(Uint8List data) {
-    _player.setAudioSource(AudioSource.bytes(data));
   }
 
   void _onEvent(Map<String, dynamic> event) {
     if (!mounted) return;
     final type = event['type'] as String?;
-    if (type == 'user') {
-      setState(() => _statusText = 'You said: ${event['text']}');
-    } else if (type == 'gemini') {
-      setState(() {
+    setState(() {
+      if (type == 'user') {
+        _statusText = 'You said: ${event['text']}';
+      } else if (type == 'gemini') {
         _state = AgentUiState.agentSpeaking;
         _statusText = 'Eco: ${event['text']}';
-      });
-    } else if (type == 'turn_complete') {
-      setState(() => _state = AgentUiState.listening);
-      _startRecording();
-    } else if (type == 'interrupted') {
-      setState(() => _state = AgentUiState.listening);
-    } else if (type == 'error') {
-      setState(() {
+      } else if (type == 'turn_complete') {
+        _state = AgentUiState.listening;
+      } else if (type == 'interrupted') {
+        _state = AgentUiState.listening;
+      } else if (type == 'error') {
         _state = AgentUiState.error;
         _errorText = event['error'] as String?;
-      });
-    }
+      }
+    });
   }
 
   Future<bool> _ensureMicPermission() async {
@@ -120,40 +100,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
     if (status.isGranted) return true;
     status = await Permission.microphone.request();
     return status.isGranted;
-  }
-
-  Future<void> _startRecording() async {
-    if (_isRecording) return;
-    if (!await _ensureMicPermission()) return;
-
-    try {
-      _isRecording = true;
-      final stream = await _recorder.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          numChannels: 1,
-          sampleRate: 16000,
-        ),
-      );
-      _recordStateSub = stream.listen(
-        (data) {
-          if (_geminiService.isConnected && _micEnabled) {
-            _geminiService.sendAudio(data);
-          }
-        },
-        onError: (e) => debugPrint('Record error: $e'),
-      );
-    } catch (e) {
-      debugPrint('Failed to start recording: $e');
-      _isRecording = false;
-    }
-  }
-
-  Future<void> _stopRecording() async {
-    _isRecording = false;
-    await _recordStateSub?.cancel();
-    _recordStateSub = null;
-    await _recorder.stop();
   }
 
   Future<void> _connect() async {
@@ -203,11 +149,6 @@ class _LiveAiScreenState extends State<LiveAiScreen>
 
   Future<void> _toggleMic() async {
     _micEnabled = !_micEnabled;
-    if (_micEnabled) {
-      await _startRecording();
-    } else {
-      await _stopRecording();
-    }
     setState(() {});
   }
 
@@ -240,7 +181,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   }
 
   Future<void> _disconnect() async {
-    await _stopRecording();
+    await _player.stop();
     await _geminiService.disconnect();
     if (mounted) {
       setState(() {
