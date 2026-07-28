@@ -1,22 +1,26 @@
-import hmac
-import hashlib
+import asyncio
 import base64
 import json
 import logging
 import os
-import time
-import urllib.request
-from fastapi import FastAPI, HTTPException, Depends
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
 from database import get_db, init_db, calculate_level
+from gemini_live import GeminiLive
 
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("eco-giants-api")
 
-app = FastAPI(title="Eco-Giants API", version="1.0.0")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+app = FastAPI(title="Eco-Giants API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,54 +31,9 @@ app.add_middleware(
 )
 
 
-def _b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
-
-
-def _create_livekit_jwt(video_grants: dict) -> str:
-    api_key = os.environ.get("LIVEKIT_API_KEY", "APIbTNp58iUneWh")
-    api_secret = os.environ.get("LIVEKIT_API_SECRET", "yDau9pZ3QPKTH3QUWbSZNdWW4CwKBUDlD4Vaf8Rer2R")
-    now = int(time.time())
-    header = _b64url(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-    claims = _b64url(json.dumps({
-        "iss": api_key, "sub": "backend", "nbf": now, "exp": now + 3600,
-        "video": video_grants,
-    }).encode())
-    sig = _b64url(hmac.new(api_secret.encode(), f"{header}.{claims}".encode(), hashlib.sha256).digest())
-    return f"{header}.{claims}.{sig}"
-
-
-def _create_agent_dispatch():
-    """Create a dispatch rule on LiveKit Cloud so the agent auto-joins eco-giant-* rooms."""
-    try:
-        livekit_host = os.environ.get("LIVEKIT_URL", "wss://eco-giants-l8flnoop.livekit.cloud")
-        host = livekit_host.replace("wss://", "https://").replace("ws://", "http://")
-        token = _create_livekit_jwt({
-            "roomCreate": True, "roomAdmin": True, "roomList": True, "agentCreate": True,
-        })
-        data = json.dumps({
-            "roomName": "eco-giant-*",
-            "agentName": "eco-giant",
-        }).encode()
-        req = urllib.request.Request(
-            f"{host}/twirp/livekit.AgentService/CreateDispatch",
-            data=data,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=10)
-        logger.info("Agent dispatch rule created")
-    except Exception as e:
-        logger.warning(f"Failed to create agent dispatch rule: {e}")
-
-
 @app.on_event("startup")
 async def startup():
     await init_db()
-    _create_agent_dispatch()
     logger.info("Database initialized")
 
 
@@ -187,7 +146,6 @@ async def get_user(student_number: str):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Get rank
         rank_row = await db.execute(
             """SELECT COUNT(*) + 1 as rank FROM users
                WHERE total_points > (SELECT total_points FROM users WHERE student_number = ?)""",
@@ -201,9 +159,6 @@ async def get_user(student_number: str):
         }
     finally:
         await db.close()
-
-
-# ── Points / Progress ─────────────────────────────────────────────
 
 
 @app.post("/api/points/add")
@@ -221,7 +176,6 @@ async def add_points(req: UpdatePointsRequest):
         new_total = user["total_points"] + req.points
         new_level = calculate_level(new_total)
 
-        # Update streak
         today = datetime.now().strftime("%Y-%m-%d")
         last_active = user["last_active_date"]
         current_streak = user["current_streak"]
@@ -250,7 +204,6 @@ async def add_points(req: UpdatePointsRequest):
             (new_total, new_level, current_streak, max_streak, today, req.student_number),
         )
 
-        # Record disposal
         await db.execute(
             "INSERT INTO disposals (user_id, category, item_name, points_earned, verified) VALUES (?, ?, ?, ?, 1)",
             (user["id"], req.category, req.item_name, req.points),
@@ -305,9 +258,6 @@ async def submit_quiz(req: QuizResultRequest):
         await db.close()
 
 
-# ── Leaderboard ───────────────────────────────────────────────────
-
-
 @app.get("/api/leaderboard")
 async def get_leaderboard(limit: int = 50):
     db = await get_db()
@@ -333,56 +283,80 @@ async def get_leaderboard(limit: int = 50):
         await db.close()
 
 
-# ── LiveKit Token ─────────────────────────────────────────────────
-
-
-@app.post("/api/livekit/token")
-async def get_livekit_token(body: dict):
-    """Generate a LiveKit access token for the student to join a room."""
-    import jwt
-    import time
-    import os
-
-    student_number = body.get("student_number", "anonymous")
-    room_name = body.get("room_name")
-    if not room_name:
-        room_name = f"eco-giant-{student_number}"
-
-    api_key = os.environ.get("LIVEKIT_API_KEY", "APIbTNp58iUneWh")
-    api_secret = os.environ.get("LIVEKIT_API_SECRET", "yDau9pZ3QPKTH3QUWbSZNdWW4CwKBUDlD4Vaf8Rer2R")
-
-    now = int(time.time())
-    payload = {
-        "iss": api_key,
-        "sub": f"student-{student_number}",
-        "nbf": now,
-        "exp": now + 21600,
-        "video": {
-            "room": room_name,
-            "roomJoin": True,
-            "canPublish": True,
-            "canSubscribe": True,
-            "canPublishData": True,
-        },
-    }
-
-    token = jwt.encode(payload, api_secret, algorithm="HS256")
-
-    return {
-        "url": os.environ.get("LIVEKIT_URL", "wss://eco-giants-l8flnoop.livekit.cloud"),
-        "token": token,
-        "room": room_name,
-    }
-
-
-# ── Health ────────────────────────────────────────────────────────
-
-
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "service": "eco-giants-api"}
 
 
+# ── Gemini Live WebSocket ─────────────────────────────────────────
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    logger.info("Gemini Live WebSocket connected")
+
+    audio_input_queue = asyncio.Queue()
+    video_input_queue = asyncio.Queue()
+    text_input_queue = asyncio.Queue()
+
+    async def audio_output_callback(data):
+        await websocket.send_bytes(data)
+
+    gemini_client = GeminiLive(
+        api_key=GEMINI_API_KEY,
+        model=os.getenv("GEMINI_MODEL", "gemini-3.1-flash-live-preview"),
+        input_sample_rate=16000,
+    )
+
+    async def receive_from_client():
+        try:
+            while True:
+                message = await websocket.receive()
+                if message.get("bytes"):
+                    await audio_input_queue.put(message["bytes"])
+                elif message.get("text"):
+                    try:
+                        payload = json.loads(message["text"])
+                        if isinstance(payload, dict):
+                            if payload.get("type") == "image":
+                                image_data = base64.b64decode(payload["data"])
+                                await video_input_queue.put(image_data)
+                                continue
+                    except json.JSONDecodeError:
+                        pass
+                    await text_input_queue.put(message["text"])
+        except WebSocketDisconnect:
+            logger.info("WebSocket disconnected")
+        except Exception as e:
+            logger.error(f"Error receiving from client: {e}")
+
+    receive_task = asyncio.create_task(receive_from_client())
+
+    async def run_session():
+        async for event in gemini_client.start_session(
+            audio_input_queue=audio_input_queue,
+            video_input_queue=video_input_queue,
+            text_input_queue=text_input_queue,
+            audio_output_callback=audio_output_callback,
+        ):
+            if event:
+                await websocket.send_json(event)
+
+    try:
+        await run_session()
+    except Exception as e:
+        import traceback
+        logger.error(f"Gemini session error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+    finally:
+        receive_task.cancel()
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

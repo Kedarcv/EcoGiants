@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget git && \
+    build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -13,4 +13,4 @@ COPY eco_giant_agent/ ./
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} & python agent.py start"]
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
