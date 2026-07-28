@@ -1,16 +1,9 @@
-import 'dart:async';
-import 'package:camera/camera.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'LiveAiScreen.dart';
 
-/// Prejoin Screen — Camera preview + mic check before entering the Live AI room.
-///
-/// Pattern: livekit_components Prejoin widget.
-/// The student sees themselves, confirms camera/mic, then taps "Join EcoBot Room"
-/// which auto-generates a JWT and connects to LiveKit Cloud.
 class LiveAiPrejoinScreen extends StatefulWidget {
   static const String routeName = '/live_ai_prejoin';
 
@@ -21,93 +14,30 @@ class LiveAiPrejoinScreen extends StatefulWidget {
 }
 
 class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
-  CameraController? _cameraController;
-  List<CameraDescription> _cameras = [];
-  bool _cameraReady = false;
-  bool _camOn = true;
   bool _micOn = true;
   bool _joining = false;
 
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    _requestPermissions();
   }
 
-  @override
-  void dispose() {
-    _cameraController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initCamera() async {
-    // Request mic early so iOS registers the app in Settings > Privacy
+  Future<void> _requestPermissions() async {
     await Permission.microphone.request();
-
-    // Request camera
-    var camPerm = await Permission.camera.status;
-    if (!camPerm.isGranted) {
-      camPerm = await Permission.camera.request();
-    }
-
-    if (!camPerm.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Camera permission is needed for the preview.'),
-          ),
-        );
-      }
-      return;
-    }
-
-    _cameras = await availableCameras();
-    if (_cameras.isEmpty) return;
-
-    final cam = _cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => _cameras.first,
-    );
-
-    _cameraController = CameraController(
-      cam,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
-    await _cameraController!.initialize();
-    if (mounted) setState(() => _cameraReady = true);
-  }
-
-  Future<void> _flipCamera() async {
-    if (_cameras.length < 2 || _cameraController == null) return;
-    final current = _cameraController!.description.lensDirection;
-    final next = _cameras.firstWhere(
-      (c) => c.lensDirection != current,
-      orElse: () => _cameras.first,
-    );
-    await _cameraController!.dispose();
-    _cameraController = CameraController(
-      next,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
-    await _cameraController!.initialize();
-    if (mounted) setState(() {});
   }
 
   Future<void> _joinRoom() async {
     setState(() => _joining = true);
     HapticFeedback.mediumImpact();
 
-    // Small delay for UX feedback
     await Future.delayed(const Duration(milliseconds: 400));
-
     if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => LiveAiScreen(
-          cameraOn: _camOn,
           microphoneOn: _micOn,
         ),
       ),
@@ -119,11 +49,10 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
     SizeConfig().init(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Slate-900
+      backgroundColor: const Color(0xFF0F172A),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
@@ -134,7 +63,7 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
                   ),
                   const Expanded(
                     child: Text(
-                      'EcoBot Live Session',
+                      'Eco — AI Tutor',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -148,57 +77,54 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
               ),
             ),
 
-            // Camera preview
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (_cameraReady && _cameraController != null)
-                        CameraPreview(_cameraController!)
-                      else
-                        const Center(
-                          child: CircularProgressIndicator(color: Colors.white70),
-                        ),
+            const Spacer(),
 
-                      // Camera off overlay
-                      if (_cameraReady && !_camOn)
-                        Container(
-                          color: Colors.black87,
-                          child: const Center(
-                            child: Icon(
-                              Icons.videocam_off_outlined,
-                              color: Colors.white54,
-                              size: 64,
-                            ),
-                          ),
-                        ),
-
-                      // Flip camera button
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: _circleButton(
-                          icon: Icons.flip_camera_ios,
-                          onTap: _flipCamera,
-                        ),
+            Column(
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0D9488).withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 4,
                       ),
                     ],
                   ),
+                  child: const Icon(Icons.eco, size: 56, color: Colors.white),
                 ),
-              ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Talk to Eco about waste sorting',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ask anything about recycling, composting,\nor hazardous waste disposal.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
 
-            const SizedBox(height: 20),
+            const Spacer(),
 
-            // Controls
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -208,26 +134,11 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
                   isOn: _micOn,
                   onTap: () => setState(() => _micOn = !_micOn),
                 ),
-                const SizedBox(width: 24),
-                _toggleButton(
-                  icon: _camOn ? Icons.videocam : Icons.videocam_off,
-                  label: _camOn ? 'Cam On' : 'Cam Off',
-                  isOn: _camOn,
-                  onTap: () {
-                    setState(() => _camOn = !_camOn);
-                    if (_camOn) {
-                      _cameraController?.resumePreview();
-                    } else {
-                      _cameraController?.pausePreview();
-                    }
-                  },
-                ),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Join button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(
@@ -236,7 +147,7 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
                 child: ElevatedButton(
                   onPressed: _joining ? null : _joinRoom,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    backgroundColor: const Color(0xFF0D9488),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -252,7 +163,7 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
                           ),
                         )
                       : const Text(
-                          'Join EcoBot Room',
+                          'Start Session',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -265,7 +176,7 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
             const SizedBox(height: 12),
 
             Text(
-              'You\'ll connect to the AI tutor with camera & mic.',
+              'You\'ll connect to Eco hands-free with your mic.',
               style: TextStyle(
                 fontSize: getProportionateScreenWidth(12),
                 color: Colors.white54,
@@ -275,24 +186,6 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
             const SizedBox(height: 20),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _circleButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
