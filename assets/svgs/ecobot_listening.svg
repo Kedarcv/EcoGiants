@@ -1,0 +1,33 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Body (rounded leaf shape) -->
+  <ellipse cx="100" cy="120" rx="50" ry="60" fill="#2ECC71" stroke="#27AE60" stroke-width="3"/>
+  
+  <!-- Face background -->
+  <circle cx="100" cy="100" r="40" fill="#FFFFFF"/>
+  
+  <!-- Eyes (curious, focused) -->
+  <ellipse cx="85" cy="95" rx="14" ry="16" fill="#2C3E50"/>
+  <ellipse cx="115" cy="95" rx="14" ry="16" fill="#2C3E50"/>
+  
+  <!-- Eye highlights -->
+  <circle cx="89" cy="89" r="6" fill="#FFFFFF"/>
+  <circle cx="119" cy="89" r="6" fill="#FFFFFF"/>
+  
+  <!-- Neutral mouth (listening) -->
+  <path d="M 90 115 Q 100 118 110 115" stroke="#2C3E50" stroke-width="3" fill="none" stroke-linecap="round"/>
+  
+  <!-- Hand to ear gesture (right) -->
+  <path d="M 145 100 Q 165 95 165 85" stroke="#2ECC71" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <circle cx="165" cy="85" r="10" fill="#2ECC71"/>
+  
+  <!-- Left arm down -->
+  <path d="M 55 115 Q 45 135 40 145" stroke="#2ECC71" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <circle cx="40" cy="145" r="10" fill="#2ECC71"/>
+  
+  <!-- Sound waves indicator -->
+  <path d="M 175 75 Q 185 80 175 85" stroke="#3498DB" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 180 70 Q 192 80 180 90" stroke="#3498DB" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.4"/>
+  
+  <!-- Leaf accent on head -->
+  <path d="M 100 50 Q 120 30 130 40 Q 110 55 100 50" fill="#27AE60"/>
+</svg>
