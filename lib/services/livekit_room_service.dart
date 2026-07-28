@@ -91,6 +91,7 @@ class LiveKitRoomService extends ChangeNotifier {
     String? token,
     String roomName = 'eco-giants-tutor-room',
     String participantName = 'student',
+    bool micEnabled = true,
   }) async {
     if (_connecting) return;
     _connecting = true;
@@ -115,11 +116,13 @@ class LiveKitRoomService extends ChangeNotifier {
         connectOptions: const ConnectOptions(
           autoSubscribe: true,
         ),
-        fastConnectOptions: FastConnectOptions(
-          microphone: TrackOption(track: await LocalAudioTrack.create()),
-          camera: TrackOption(track: await LocalVideoTrack.createCameraTrack()),
-        ),
       );
+
+      // Publish camera and mic after connected
+      try {
+        await _room.localParticipant?.setMicrophoneEnabled(micEnabled);
+        await _room.localParticipant?.setCameraEnabled(true);
+      } catch (_) {}
 
       _connected = true;
       _connecting = false;

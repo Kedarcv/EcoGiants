@@ -1,0 +1,11 @@
+build/
+.ios/
+.android/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.ipa
+*.app
+*.dSYM.zip
+node_modules/
+.packages
+packages/

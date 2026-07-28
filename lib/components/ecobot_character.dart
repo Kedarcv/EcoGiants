@@ -37,7 +37,7 @@ enum EcoBotPose {
 }
 
 class _EcoBotCharacterState extends State<EcoBotCharacter>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _bounceController;
   late Animation<double> _bounceAnimation;
   late AnimationController _glowController;

@@ -58,6 +58,12 @@ class NvidiaChatService {
     });
 
     final streamedResponse = await request.send();
+
+    if (streamedResponse.statusCode != 200) {
+      final body = await streamedResponse.stream.bytesToString();
+      throw Exception('NVIDIA API error ${streamedResponse.statusCode}: $body');
+    }
+
     final stream = streamedResponse.stream
         .transform(utf8.decoder)
         .transform(const LineSplitter());

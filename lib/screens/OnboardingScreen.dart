@@ -1,8 +1,9 @@
 import 'package:deep_waste/constants/onboarding_contents.dart';
-import 'package:deep_waste/screens/HomeScreen.dart';
+import 'package:deep_waste/screens/MainNavigationScreen.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/screens/UserScreen.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -47,14 +48,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
+      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
     );
   }
 
   void _goToRegister(BuildContext context) async {
     await _markOnboardingComplete();
     if (!mounted) return;
-    
+
+    // Show permissions screen before navigating to register
+    final granted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const _PermissionsScreen()),
+    );
+
+    if (!mounted) return;
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => UserScreen()),
@@ -231,6 +240,257 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Permissions onboarding screen — explains why each permission is needed,
+/// requests them, and guides the user to settings if permanently denied.
+class _PermissionsScreen extends StatefulWidget {
+  const _PermissionsScreen();
+
+  @override
+  State<_PermissionsScreen> createState() => _PermissionsScreenState();
+}
+
+class _PermissionsScreenState extends State<_PermissionsScreen> {
+  bool _cameraGranted = false;
+  bool _micGranted = false;
+  bool _locationGranted = false;
+  bool _requesting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExisting();
+  }
+
+  Future<void> _checkExisting() async {
+    final cam = await Permission.camera.status;
+    final mic = await Permission.microphone.status;
+    final loc = await Permission.locationWhenInUse.status;
+    setState(() {
+      _cameraGranted = cam.isGranted;
+      _micGranted = mic.isGranted;
+      _locationGranted = loc.isGranted;
+    });
+  }
+
+  Future<void> _requestPermissions() async {
+    setState(() => _requesting = true);
+
+    // Request all permissions directly
+    final results = await [
+      Permission.camera,
+      Permission.microphone,
+      Permission.locationWhenInUse,
+    ].request();
+
+    setState(() {
+      _cameraGranted = results[Permission.camera]?.isGranted ?? false;
+      _micGranted = results[Permission.microphone]?.isGranted ?? false;
+      _locationGranted = results[Permission.locationWhenInUse]?.isGranted ?? false;
+      _requesting = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0FDFA),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  size: 48,
+                  color: Color(0xFF0D9488),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Enable Features',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Eco-Giants needs a few permissions to work properly.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 32),
+
+              // Permission cards
+              _buildPermissionCard(
+                icon: Icons.camera_alt,
+                title: 'Camera',
+                description: 'Classify waste by taking photos',
+                granted: _cameraGranted,
+              ),
+              const SizedBox(height: 12),
+              _buildPermissionCard(
+                icon: Icons.mic,
+                title: 'Microphone',
+                description: 'Talk to the Eco AI tutor',
+                granted: _micGranted,
+              ),
+              const SizedBox(height: 12),
+              _buildPermissionCard(
+                icon: Icons.location_on,
+                title: 'Location',
+                description: 'Find nearby recycling bins',
+                granted: _locationGranted,
+              ),
+
+              const Spacer(),
+
+              // Allow button
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _requesting
+                      ? null
+                      : (_cameraGranted && _micGranted && _locationGranted)
+                          ? null
+                          : _requestPermissions,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D9488),
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: _requesting
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          (_cameraGranted && _micGranted && _locationGranted)
+                              ? 'All permissions granted!'
+                              : 'Allow Permissions',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Skip
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context, true);
+                },
+                child: const Text(
+                  'Skip for now',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required bool granted,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: granted
+              ? const Color(0xFF10B981)
+              : Colors.grey.shade200,
+          width: granted ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: granted
+                  ? const Color(0xFF10B981).withOpacity(0.1)
+                  : const Color(0xFF0D9488).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: granted ? const Color(0xFF10B981) : const Color(0xFF0D9488),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            granted ? Icons.check_circle : Icons.arrow_forward_ios,
+            color: granted ? const Color(0xFF10B981) : Colors.grey.shade400,
+            size: granted ? 24 : 16,
+          ),
+        ],
       ),
     );
   }

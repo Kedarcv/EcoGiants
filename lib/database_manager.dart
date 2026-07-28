@@ -43,17 +43,70 @@ class DatabaseManager {
       );
 
       await File(path).writeAsBytes(bytes, flush: true);
+
+      // The bundled DB has user_version 0, which makes sqflite skip onUpgrade.
+      // Force it to 1 so the full migration chain (1 -> 3) runs.
+      Database tempDb = await openDatabase(path);
+      await tempDb.setVersion(1);
+      await tempDb.close();
     } else {
       print("Opening existing database");
     }
 
     Database db = await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onUpgrade: _onUpgrade,
     );
 
+    // Safety repair: ensure the profileImage column exists even if user_version
+    // was bumped without this column being present (e.g. existing AVD installs).
+    await _ensureUserTableSchema(db);
+
     return db;
+  }
+
+  Future<void> _ensureUserTableSchema(Database db) async {
+    try {
+      final columns = await db.rawQuery("PRAGMA table_info(User)");
+      bool hasProfileImage = columns.any((c) => c['name'] == 'profileImage');
+      if (!hasProfileImage) {
+        print("Repairing User table: adding missing profileImage column");
+        await db.execute('ALTER TABLE User ADD COLUMN profileImage TEXT');
+      }
+      bool hasTotalPoints = columns.any((c) => c['name'] == 'totalPoints');
+      if (!hasTotalPoints) {
+        print("Repairing User table: adding missing totalPoints column");
+        await db.execute('ALTER TABLE User ADD COLUMN totalPoints INTEGER DEFAULT 0');
+      }
+      bool hasEcoLevel = columns.any((c) => c['name'] == 'ecoLevel');
+      if (!hasEcoLevel) {
+        print("Repairing User table: adding missing ecoLevel column");
+        await db.execute('ALTER TABLE User ADD COLUMN ecoLevel TEXT DEFAULT "Seedling"');
+      }
+      bool hasCurrentStreak = columns.any((c) => c['name'] == 'currentStreak');
+      if (!hasCurrentStreak) {
+        print("Repairing User table: adding missing currentStreak column");
+        await db.execute('ALTER TABLE User ADD COLUMN currentStreak INTEGER DEFAULT 0');
+      }
+      bool hasMaxStreak = columns.any((c) => c['name'] == 'maxStreak');
+      if (!hasMaxStreak) {
+        print("Repairing User table: adding missing maxStreak column");
+        await db.execute('ALTER TABLE User ADD COLUMN maxStreak INTEGER DEFAULT 0');
+      }
+      bool hasLastDisposalDate = columns.any((c) => c['name'] == 'lastDisposalDate');
+      if (!hasLastDisposalDate) {
+        print("Repairing User table: adding missing lastDisposalDate column");
+        await db.execute('ALTER TABLE User ADD COLUMN lastDisposalDate TEXT');
+      }
+      bool hasOnboardingComplete = columns.any((c) => c['name'] == 'onboardingComplete');
+      if (!hasOnboardingComplete) {
+        print("Repairing User table: adding missing onboardingComplete column");
+        await db.execute('ALTER TABLE User ADD COLUMN onboardingComplete INTEGER DEFAULT 0');
+      }
+    } catch (e) {
+      print("Schema repair warning: $e");
+    }
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -119,6 +172,15 @@ class DatabaseManager {
       // Seed demo leaderboard data
       await _seedLeaderboardData(db);
     }
+
+    if (oldVersion < 3) {
+      // Fix: Add the missing profileImage column
+      try {
+        await db.execute('ALTER TABLE User ADD COLUMN profileImage TEXT');
+      } catch (e) {
+        print("Column profileImage may already exist: $e");
+      }
+    }
   }
 
   Future<void> _seedLeaderboardData(Database db) async {
@@ -147,7 +209,7 @@ class DatabaseManager {
 
   Future<void> initializeTables() async {
     final db = await instance.database;
-    await _onUpgrade(db, 1, 2);
+    await _onUpgrade(db, 1, 3);
   }
 
   // ---- Category ----

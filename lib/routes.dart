@@ -2,8 +2,10 @@ import 'package:deep_waste/screens/DisposalHistoryScreen.dart';
 import 'package:deep_waste/screens/EcoBotChatScreen.dart';
 import 'package:deep_waste/screens/HomeScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
-import 'package:deep_waste/screens/LiveAiPrejoinScreen.dart';
+import 'package:deep_waste/screens/LearningScreen.dart';
 import 'package:deep_waste/screens/LiveAiScreen.dart';
+import 'package:deep_waste/screens/MainNavigationScreen.dart';
+import 'package:deep_waste/screens/QRCodeGeneratorScreen.dart';
 import 'package:deep_waste/screens/QRScannerScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
 import 'package:deep_waste/screens/SettingsScreen.dart';
@@ -15,12 +17,15 @@ import 'package:flutter/widgets.dart';
 // All our routes will be available here
 final Map<String, WidgetBuilder> routes = {
   SplashScreen.routeName: (context) => const SplashScreen(),
+  MainNavigationScreen.routeName: (context) => const MainNavigationScreen(),
   HomeScreen.routeName: (context) => const HomeScreen(),
+  LearningScreen.routeName: (context) => const LearningScreen(),
   RewardsScreen.routeName: (context) => const RewardsScreen(),
   LeaderboardScreen.routeName: (context) => const LeaderboardScreen(),
   DisposalHistoryScreen.routeName: (context) => const DisposalHistoryScreen(),
   LiveAiScreen.routeName: (context) => const LiveAiScreen(),
   EcoBotChatScreen.routeName: (context) => const EcoBotChatScreen(),
+  QRCodeGeneratorScreen.routeName: (context) => const QRCodeGeneratorScreen(),
   SettingsScreen.routeName: (context) {
     // SettingsScreen requires a user argument, so this route needs special handling
     // In practice, use MaterialPageRoute directly
