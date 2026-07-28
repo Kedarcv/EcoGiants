@@ -37,4 +37,7 @@ build/
 # Temporary files
 *.tmp
 *~
+
+# Config
+/lib/config.dart
 ```

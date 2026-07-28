@@ -4,9 +4,12 @@ import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/models/disposal_record.dart';
 import 'package:deep_waste/screens/VerificationSuccessScreen.dart';
+import 'package:deep_waste/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class QRScannerScreen extends StatefulWidget {
   static String routeName = "/qr_scanner";
@@ -81,10 +84,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         return;
       }
 
-      // Check QR expiry (5 minutes)
+      // Check QR expiry (30 days for printed bin QR codes)
       final int qrTimestamp = int.tryParse(timestampStr) ?? 0;
       final int nowTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (nowTimestamp - qrTimestamp > 300) {
+      if (nowTimestamp - qrTimestamp > 2592000) {
         _showError('QR code has expired. Please get a new QR code from the bin.');
         return;
       }
@@ -141,6 +144,18 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
       await DatabaseManager.instance.updateUser(updatedUser);
       await DatabaseManager.instance.updateRealUserInLeaderboard(updatedUser);
+
+      // Sync points to backend
+      final prefs = await SharedPreferences.getInstance();
+      final studentNumber = prefs.getString('student_number') ?? '';
+      if (studentNumber.isNotEmpty) {
+        await ApiService.instance.addPoints(
+          studentNumber: studentNumber,
+          points: finalPoints,
+          category: qrCategory,
+          itemName: binId,
+        );
+      }
 
       // Save disposal record
       final disposalId = '${user.id}_${DateTime.now().millisecondsSinceEpoch}';
@@ -285,14 +300,131 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+          // Bottom action buttons
+          Positioned(
+            bottom: 32,
+            left: 24,
+            right: 24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _showManualEntryDialog,
+                    icon: const Icon(Icons.keyboard, size: 20),
+                    label: const Text('Enter QR Code Manually'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                const SizedBox(height: 40),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _pickFromGallery,
+                    icon: const Icon(Icons.photo_library, size: 20),
+                    label: const Text('Pick from Gallery'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _showManualEntryDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter QR Code Data'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Paste or type the QR code data below.',
+              style: TextStyle(fontSize: 14, color: Colors.white70),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 3,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              decoration: InputDecoration(
+                hintText: 'EG_BIN001_REC_1700000000_ABC123',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+            ),
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      setState(() => _isProcessing = true);
+      await _verifyQR(result);
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Image selected. Enter the QR code data manually.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      await _showManualEntryDialog();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking image: $e')),
+        );
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 import 'package:confetti/confetti.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/models/User.dart';
-import 'package:deep_waste/screens/HomeScreen.dart';
+import 'package:deep_waste/screens/MainNavigationScreen.dart';
 import 'package:flutter/material.dart';
 
 class VerificationSuccessScreen extends StatefulWidget {
@@ -377,7 +377,7 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen>
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => HomeScreen()),
+                            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
                             (route) => false,
                           );
                         },

@@ -41,14 +41,20 @@ class _LiveAiPrejoinScreenState extends State<LiveAiPrejoinScreen> {
   }
 
   Future<void> _initCamera() async {
-    final camPerm = await Permission.camera.request();
-    final micPerm = await Permission.microphone.request();
+    // Request mic early so iOS registers the app in Settings > Privacy
+    await Permission.microphone.request();
 
-    if (camPerm.isDenied || micPerm.isDenied) {
+    // Request camera
+    var camPerm = await Permission.camera.status;
+    if (!camPerm.isGranted) {
+      camPerm = await Permission.camera.request();
+    }
+
+    if (!camPerm.isGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Camera and microphone permissions are required.'),
+            content: Text('Camera permission is needed for the preview.'),
           ),
         );
       }

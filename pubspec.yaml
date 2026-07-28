@@ -63,6 +63,13 @@ dependencies:
   carousel_slider: ^5.0.0
   # Voice recognition for AI tutor
   speech_to_text: ^7.0.0
+  # Location & Maps
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  # QR Code generation for test bins
+  qr_flutter: ^4.1.0
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   flutter_test:

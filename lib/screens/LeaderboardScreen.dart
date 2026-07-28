@@ -1,7 +1,9 @@
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
+import 'package:deep_waste/services/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   static String routeName = "/leaderboard";
@@ -17,6 +19,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   User? _currentUser;
   bool _isLoading = true;
   int? _userRank;
+  String _studentNumber = '';
 
   @override
   void initState() {
@@ -24,36 +27,82 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     _loadData();
   }
 
+  /// Normalize entry to have both snake_case and camelCase keys
+  void _normalizeEntry(Map<String, dynamic> entry) {
+    if (entry.containsKey('totalPoints') && !entry.containsKey('total_points')) {
+      entry['total_points'] = entry['totalPoints'];
+    }
+    if (entry.containsKey('total_points') && !entry.containsKey('totalPoints')) {
+      entry['totalPoints'] = entry['total_points'];
+    }
+    if (entry.containsKey('ecoLevel') && !entry.containsKey('eco_level')) {
+      entry['eco_level'] = entry['ecoLevel'];
+    }
+    if (entry.containsKey('eco_level') && !entry.containsKey('ecoLevel')) {
+      entry['ecoLevel'] = entry['eco_level'];
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
     try {
-      // Get current user
       _currentUser = await DatabaseManager.instance.getUser();
+      final prefs = await SharedPreferences.getInstance();
+      _studentNumber = prefs.getString('student_number') ?? '';
 
-      // Ensure real user is in leaderboard
-      if (_currentUser != null) {
-        await DatabaseManager.instance.updateRealUserInLeaderboard(_currentUser!);
+      // Try backend first
+      _entries = await ApiService.instance.getLeaderboard();
+      for (final e in _entries) _normalizeEntry(e);
+
+      // If backend returned nothing, fall back to local leaderboard table
+      if (_entries.isEmpty) {
+        if (_currentUser != null) {
+          await DatabaseManager.instance.updateRealUserInLeaderboard(_currentUser!);
+        }
+        _entries = await DatabaseManager.instance.getLeaderboard();
+        for (final e in _entries) _normalizeEntry(e);
       }
 
-      // Get leaderboard
-      final leaderboard = await DatabaseManager.instance.getLeaderboard();
+      // Always overlay the current user's latest local data
+      if (_currentUser != null && _studentNumber.isNotEmpty) {
+        final existingIndex = _entries.indexWhere(
+          (e) => e['student_number'] == _studentNumber,
+        );
+        final userEntry = {
+          'rank': existingIndex >= 0 ? _entries[existingIndex]['rank'] : _entries.length + 1,
+          'student_number': _studentNumber,
+          'name': _currentUser!.name,
+          'total_points': _currentUser!.totalPoints,
+          'totalPoints': _currentUser!.totalPoints,
+          'eco_level': _currentUser!.ecoLevel,
+          'ecoLevel': _currentUser!.ecoLevel,
+          'isRealUser': 1,
+        };
+        if (existingIndex >= 0) {
+          _entries[existingIndex] = userEntry;
+        } else {
+          _entries.add(userEntry);
+        }
+        // Re-sort by total_points descending and reassign ranks
+        _entries.sort((a, b) => (b['total_points'] as int).compareTo(a['total_points'] as int));
+        for (int i = 0; i < _entries.length; i++) {
+          _entries[i]['rank'] = i + 1;
+        }
+      }
 
-      // Calculate user rank
+      // Find current user's rank
       _userRank = null;
-      if (_currentUser != null) {
-        for (int i = 0; i < leaderboard.length; i++) {
-          if (leaderboard[i]['isRealUser'] == 1) {
-            _userRank = i + 1;
+      if (_studentNumber.isNotEmpty) {
+        for (final entry in _entries) {
+          if (entry['student_number'] == _studentNumber) {
+            _userRank = entry['rank'] as int?;
             break;
           }
         }
       }
 
-      setState(() {
-        _entries = leaderboard;
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     } catch (e) {
       print("Error loading leaderboard: $e");
       setState(() => _isLoading = false);
@@ -265,7 +314,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       itemBuilder: (context, index) {
                         final entry = _entries[index];
                         final rank = index + 1;
-                        final isRealUser = entry['isRealUser'] == 1;
+                        final isRealUser = entry['student_number'] == _studentNumber;
                         final bool isTop3 = rank <= 3;
 
                         return Container(
@@ -338,13 +387,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             subtitle: Row(
                               children: [
                                 Icon(
-                                  User.getLevelIcon(entry['ecoLevel']),
+                                  User.getLevelIcon(entry['eco_level']),
                                   color: Colors.grey[600],
                                   size: getProportionateScreenWidth(13),
                                 ),
                                 SizedBox(width: 4),
                                 Text(
-                                  entry['ecoLevel'],
+                                  entry['eco_level'],
                                   style: TextStyle(
                                     fontSize: getProportionateScreenWidth(13),
                                     color: Colors.grey[600],
@@ -353,7 +402,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               ],
                             ),
                             trailing: Text(
-                              '${entry['totalPoints']}',
+                              '${entry['total_points']}',
                               style: TextStyle(
                                 fontSize: getProportionateScreenWidth(16),
                                 fontWeight: FontWeight.bold,
@@ -410,7 +459,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           Text(
-            '${entry['totalPoints']} pts',
+            '${entry['total_points']} pts',
             style: TextStyle(
               fontSize: getProportionateScreenWidth(11),
               color: Colors.grey[600],

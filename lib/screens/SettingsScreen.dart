@@ -3,7 +3,7 @@ import 'package:deep_waste/constants/app_properties.dart';
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/screens/DisposalHistoryScreen.dart';
-import 'package:deep_waste/screens/HomeScreen.dart';
+import 'package:deep_waste/screens/MainNavigationScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
 import 'package:expandable/expandable.dart';
@@ -197,7 +197,7 @@ class _SettingsState extends State<SettingsScreen> {
                           if (!mounted) return;
                           Navigator.pushAndRemoveUntil(
                             context,
-                            MaterialPageRoute(builder: (_) => HomeScreen()),
+                            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
                             (route) => false,
                           );
                         },
