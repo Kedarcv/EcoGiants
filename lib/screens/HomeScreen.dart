@@ -721,7 +721,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  PhosphorIcon(PhosphorIcons.bell_ringing(PhosphorIconsStyle.fill), color: Colors.teal.shade700, size: 24),
+                  PhosphorIcon(PhosphorIcons.bell(PhosphorIconsStyle.fill), color: Colors.teal.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     'Latest Updates',
@@ -810,9 +810,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         color: Colors.green.shade600,
                         shape: BoxShape.circle,
                       ),
-                      child: Text(
+                      child: Icon(
                         User.getLevelIcon(user!.ecoLevel),
-                        style: const TextStyle(color: Colors.white, fontSize: 24),
+                        color: Colors.white,
+                        size: 24,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -840,7 +841,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     PhosphorIcon(
-                      PhosphorIcons.trend_up(PhosphorIconsStyle.fill),
+                      PhosphorIcons.trendUp(PhosphorIconsStyle.fill),
                       color: Colors.green.shade700,
                       size: 28,
                     ),

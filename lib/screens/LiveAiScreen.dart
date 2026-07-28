@@ -887,7 +887,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
         children: [
           // Microphone button - TRIGGERS SPEECH RECOGNITION
           _controlButton(
-            icon: _isListening ? PhosphorIcons.microphoneSlash() : PhosphorIcons.microphone(PhosphorIconsStyle.fill),
+            icon: _isListening ? PhosphorIcons.microphoneSlash(PhosphorIconsStyle.fill) : PhosphorIcons.microphone(PhosphorIconsStyle.fill),
             label: _isListening ? 'Stop' : 'Speak',
             isActive: _isListening,
             color: _isListening ? Colors.red : Colors.teal,
@@ -913,11 +913,9 @@ class _LiveAiScreenState extends State<LiveAiScreen>
           
           // Camera toggle
           _controlButton(
-            icon: _roomService.isCameraOff 
-              ? PhosphorIcons.videoSlash() 
-              : PhosphorIcons.videoCamera(PhosphorIconsStyle.fill),
+            icon: PhosphorIcons.videoCameraSlash(PhosphorIconsStyle.fill),
             label: 'Camera',
-            isActive: !_roomService.isCameraOff,
+            isActive: true,
             onTap: _roomService.toggleCamera,
           ),
           
@@ -968,7 +966,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
               Row(
                 children: [
                   PhosphorIcon(
-                    PhosphorIcons.lightbulb(),
+                    PhosphorIcons.lightbulb(PhosphorIconsStyle.fill),
                     color: Colors.amber,
                     size: 20,
                   ),
@@ -999,7 +997,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                     backgroundColor: Colors.teal.withOpacity(0.2),
                     side: BorderSide(color: Colors.teal.withOpacity(0.3)),
                     avatar: PhosphorIcon(
-                      PhosphorIcons.chat_teardrop(),
+                      PhosphorIcons.chatTeardrop(PhosphorIconsStyle.fill),
                       color: Colors.teal,
                       size: 18,
                     ),
