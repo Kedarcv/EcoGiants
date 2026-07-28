@@ -560,21 +560,166 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             },
           ),
           
-          // Camera FAB
-          FabCircularMenu(
-            ringDiameter: getProportionateScreenWidth(140),
-            ringColor: const Color(0xFF06B6D4),
-            ringWidth: getProportionateScreenWidth(45),
-            fabSize: getProportionateScreenWidth(56),
-            fabElevation: getProportionateScreenWidth(12),
-            fabCloseIcon: const Icon(Icons.close, color: Colors.white),
-            fabOpenIcon: const Icon(Icons.camera_alt, color: Colors.white),
-            children: <Widget>[
-              _buildFabMenuItem(Icons.camera_alt_outlined, _imageFromCamera),
-              _buildFabMenuItem(Icons.photo_library_outlined, _imageFromGallery),
-            ],
+          // Floating Action Buttons - Fixed positioning
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16, right: 16),
+              child: Align(
+                alignment: Alignment.bottomRight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Live AI Tutor FAB
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFA855F7), Color(0xFFEC4899)],
+                        ),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFA855F7).withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pushNamed(context, LiveAiPrejoinScreen.routeName);
+                          },
+                          borderRadius: BorderRadius.circular(30),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const PhosphorIcon(
+                                  PhosphorIcons.robot(PhosphorIconsStyle.fill),
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Live AI Tutor',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'NEW',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Camera FAB
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF06B6D4),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF06B6D4).withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.camera_alt, color: Colors.white, size: 28),
+                        onPressed: () {
+                          if (user == null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => UserScreen()),
+                            );
+                          } else {
+                            _showCameraOptions();
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
+      ),
+      floatingActionButton: _buildCameraMenu(),
+    );
+  }
+
+  Widget _buildCameraMenu() {
+    return FabCircularMenu(
+      ringDiameter: getProportionateScreenWidth(140),
+      ringColor: const Color(0xFF06B6D4),
+      ringWidth: getProportionateScreenWidth(45),
+      fabSize: getProportionateScreenWidth(56),
+      fabElevation: getProportionateScreenWidth(12),
+      fabCloseIcon: const Icon(Icons.close, color: Colors.white),
+      fabOpenIcon: const Icon(Icons.camera_alt, color: Colors.white),
+      children: <Widget>[
+        _buildFabMenuItem(Icons.camera_alt_outlined, _imageFromCamera),
+        _buildFabMenuItem(Icons.photo_library_outlined, _imageFromGallery),
+      ],
+    );
+  }
+
+  void _showCameraOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Color(0xFF06B6D4)),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _imageFromCamera();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Color(0xFF06B6D4)),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _imageFromGallery();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
