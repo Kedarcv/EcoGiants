@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class User {
   final int id;
   final String name;
+  final String? profileImage;
   final int totalPoints;
   final String ecoLevel;
   final int currentStreak;
@@ -38,6 +39,7 @@ class User {
   User({
     required this.id,
     required this.name,
+    this.profileImage,
     this.totalPoints = 0,
     this.ecoLevel = 'Seedling',
     this.currentStreak = 0,
@@ -50,6 +52,7 @@ class User {
     return User(
       id: json['id'],
       name: json['name'],
+      profileImage: json['profileImage'],
       totalPoints: json['totalPoints'] ?? 0,
       ecoLevel: json['ecoLevel'] ?? 'Seedling',
       currentStreak: json['currentStreak'] ?? 0,
@@ -63,6 +66,7 @@ class User {
     return {
       "id": id,
       "name": name,
+      "profileImage": profileImage,
       "totalPoints": totalPoints,
       "ecoLevel": ecoLevel,
       "currentStreak": currentStreak,
@@ -157,6 +161,7 @@ class User {
   User copyWith({
     int? id,
     String? name,
+    String? profileImage,
     int? totalPoints,
     String? ecoLevel,
     int? currentStreak,
@@ -167,6 +172,7 @@ class User {
     return User(
       id: id ?? this.id,
       name: name ?? this.name,
+      profileImage: profileImage ?? this.profileImage,
       totalPoints: totalPoints ?? this.totalPoints,
       ecoLevel: ecoLevel ?? this.ecoLevel,
       currentStreak: currentStreak ?? this.currentStreak,
