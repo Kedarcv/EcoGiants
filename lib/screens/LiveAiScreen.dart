@@ -8,13 +8,15 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:lottie/lottie.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../components/ecobot_character.dart';
 
 /// Live AI Tutor — Voice-Activated Full Video Experience with Duolingo-style EcoBot
 ///
 /// Features:
 ///   • Full-screen video with proper rendering
-///   • Voice-activated responses (tap mic to speak)
+///   • PRODUCTION voice recognition (speech-to-text)
+///   • Connects to LiveKit Agent at eco-giant-ezjbub.sandbox.livekit.cloud
 ///   • Animated EcoBot character that changes poses based on state
 ///   • Visual feedback with animations when AI listens/responds
 ///   • Minimal UI - focus on conversation
@@ -39,12 +41,14 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   late final LiveKitRoomService _roomService;
   final _chatService = NvidiaChatService();
   final _tts = FlutterTts();
-
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  
   // Voice interaction state
   bool _isListening = false;
   bool _isAiResponding = false;
   String _currentResponse = '';
   String _lastUserQuestion = '';
+  bool _speechInitialized = false;
   
   // EcoBot character pose based on state
   EcoBotPose _ecobotPose = EcoBotPose.waving;
@@ -71,6 +75,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   @override
   void initState() {
     super.initState();
+    _initializeSpeech();
     
     // Pulse animation for listening state
     _pulseController = AnimationController(
@@ -98,6 +103,37 @@ class _LiveAiScreenState extends State<LiveAiScreen>
     _initTTS();
   }
   
+  Future<void> _initializeSpeech() async {
+    try {
+      await _speech.initialize(
+        onError: (error) => print('Speech recognition error: $error'),
+        onStatus: (status) {
+          print('Speech status: $status');
+          if (!mounted) return;
+          
+          if (status == 'listening') {
+            setState(() {
+              _isListening = true;
+              _ecobotPose = EcoBotPose.listening;
+            });
+          } else if (status == 'notListening' || status == 'done' || status == 'cancelled') {
+            setState(() {
+              _isListening = false;
+              if (!_isAiResponding) {
+                _ecobotPose = EcoBotPose.waving;
+              }
+            });
+          }
+        },
+      );
+      setState(() => _speechInitialized = true);
+      print('✅ Speech-to-text initialized successfully');
+    } catch (e) {
+      print('❌ Failed to initialize speech-to-text: $e');
+      setState(() => _speechInitialized = false);
+    }
+  }
+  
   void _initTTS() async {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.5);
@@ -108,6 +144,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   void dispose() {
     _pulseController.dispose();
     _glowController.dispose();
+    _speech.stop();
     _tts.stop();
     _roomService.removeListener(_onRoomEvent);
     _roomService.dispose();
@@ -119,9 +156,12 @@ class _LiveAiScreenState extends State<LiveAiScreen>
   }
 
   Future<void> _connectToRoom() async {
+    // Connect to your LiveKit Agent
     await _roomService.connect(
       roomName: 'eco-giants-tutor-room',
       participantName: 'eco-student',
+      // Use your actual LiveKit Cloud URL
+      url: 'wss://eco-giant-ezjbub.sandbox.livekit.cloud',
     );
 
     if (_roomService.isConnected) {
@@ -142,53 +182,131 @@ class _LiveAiScreenState extends State<LiveAiScreen>
 
   // ── Voice Interaction ───────────────────────────────────────────
 
-  /// Handle voice input - simulate voice recognition
+  /// Handle voice input with PRODUCTION speech-to-text
   Future<void> _handleVoiceInput() async {
     if (_isAiResponding) return;
+    
+    if (!_speechInitialized || !_speech.isAvailable) {
+      _showSpeechError();
+      return;
+    }
     
     setState(() {
       _isListening = true;
       _showPrompts = false;
-      _ecobotPose = EcoBotPose.listening; // Change to listening pose
+      _ecobotPose = EcoBotPose.listening;
+      _lastUserQuestion = '';
     });
     
-    // Simulate listening delay (in production, use actual speech recognition)
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Start listening
+    final didStart = await _speech.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() {
+          _lastUserQuestion = result.recognizedWords;
+        });
+      },
+      localeId: 'en_US',
+      listenFor: const Duration(seconds: 15),
+      pauseFor: const Duration(seconds: 3),
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: stt.ListenMode.confirmation,
+    );
     
-    // For demo: use a random prompt
-    final randomPrompt = _educationalPrompts[DateTime.now().millisecond % _educationalPrompts.length];
-    final userQuestion = randomPrompt['question']!;
+    if (!didStart) {
+      setState(() {
+        _isListening = false;
+        _ecobotPose = EcoBotPose.disappointed;
+      });
+      _showSpeechError();
+      return;
+    }
+    
+    // Listening will auto-stop after pauseFor duration or when user stops speaking
+  }
+  
+  void _showSpeechError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _speech.isAvailable 
+            ? 'Microphone access denied. Please check permissions.'
+            : 'Speech recognition not available on this device.',
+        ),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+  
+  /// Called when speech recognition completes
+  void _onSpeechResult(String recognizedWords) {
+    if (recognizedWords.isEmpty) return;
     
     setState(() {
       _isListening = false;
-      _lastUserQuestion = userQuestion;
+      _lastUserQuestion = recognizedWords.trim();
       _isAiResponding = true;
-      _ecobotPose = EcoBotPose.teaching; // Change to teaching pose for response
+      _ecobotPose = EcoBotPose.thinking;
     });
     
-    await _processQuestion(userQuestion);
+    _processQuestion(recognizedWords.trim());
   }
 
   Future<void> _processQuestion(String question) async {
     try {
+      // Set thinking pose while waiting for response
+      setState(() => _ecobotPose = EcoBotPose.thinking);
+      
       final buffer = StringBuffer();
       await for (final chunk in _chatService.sendMessage(question)) {
         buffer.write(chunk);
-        setState(() => _currentResponse = buffer.toString());
+        setState(() {
+          _currentResponse = buffer.toString();
+          // Switch to teaching pose once we have content
+          if (_ecobotPose != EcoBotPose.teaching && buffer.length > 50) {
+            _ecobotPose = EcoBotPose.teaching;
+          }
+        });
       }
       final fullReply = buffer.toString();
       
       if (fullReply.isNotEmpty) {
+        // Check if response indicates error or confusion
+        if (fullReply.toLowerCase().contains('sorry') || 
+            fullReply.toLowerCase().contains('error') ||
+            fullReply.toLowerCase().contains("don't know")) {
+          setState(() => _ecobotPose = EcoBotPose.disappointed);
+        } else if (fullReply.toLowerCase().contains('amazing') ||
+                   fullReply.toLowerCase().contains('great') ||
+                   fullReply.toLowerCase().contains('correct')) {
+          setState(() => _ecobotPose = EcoBotPose.celebrating);
+        } else if (fullReply.toLowerCase().contains('surprising') ||
+                   fullReply.toLowerCase().contains('interesting') ||
+                   fullReply.toLowerCase().contains('fact')) {
+          setState(() => _ecobotPose = EcoBotPose.surprised);
+        } else {
+          setState(() => _ecobotPose = EcoBotPose.teaching);
+        }
+        
         await _speak(fullReply);
       }
     } catch (e) {
-      setState(() => _currentResponse = "Sorry, I had trouble understanding. Can you try again?");
+      setState(() {
+        _currentResponse = "Sorry, I had trouble understanding. Can you try again?";
+        _ecobotPose = EcoBotPose.disappointed;
+      });
       await _speak("Sorry, I had trouble understanding. Can you try again?");
     } finally {
       if (mounted) {
         setState(() {
           _isAiResponding = false;
-          _ecobotPose = EcoBotPose.waving; // Return to waving pose
+          // Return to waving pose after a delay
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) setState(() => _ecobotPose = EcoBotPose.waving);
+          });
         });
       }
     }
@@ -445,15 +563,21 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                         Icon(
                           _ecobotPose == EcoBotPose.celebrating ? Icons.emoji_events : 
                           _ecobotPose == EcoBotPose.listening ? Icons.hearing : 
-                          _ecobotPose == EcoBotPose.teaching ? Icons.school : Icons.eco,
+                          _ecobotPose == EcoBotPose.teaching ? Icons.school :
+                          _ecobotPose == EcoBotPose.thinking ? Icons.lightbulb :
+                          _ecobotPose == EcoBotPose.disappointed ? Icons.sentiment_dissatisfied :
+                          _ecobotPose == EcoBotPose.surprised ? Icons.sentiment_surprised : Icons.eco,
                           color: Colors.white,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _ecobotPose == EcoBotPose.celebrating ? 'Great job!' :
-                          _ecobotPose == EcoBotPose.listening ? 'I\'m listening...' :
+                          _ecobotPose == EcoBotPose.celebrating ? 'Great job!' : 
+                          _ecobotPose == EcoBotPose.listening ? "I'm listening..." :
                           _ecobotPose == EcoBotPose.teaching ? 'Let me teach you!' :
+                          _ecobotPose == EcoBotPose.thinking ? 'Hmm, let me think...' :
+                          _ecobotPose == EcoBotPose.disappointed ? 'Oops, try again!' :
+                          _ecobotPose == EcoBotPose.surprised ? 'Wow, did you know?' :
                           'EcoBot AI Tutor',
                           style: const TextStyle(
                             color: Colors.white,
@@ -706,9 +830,25 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  // Show recognized words in real-time
+                  if (_lastUserQuestion.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                      child: Text(
+                        '"$_lastUserQuestion"',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   const Text(
-                    'Ask me anything!',
+                    'Tap mic to stop',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -719,6 +859,89 @@ class _LiveAiScreenState extends State<LiveAiScreen>
             );
           },
         ),
+      ),
+    );
+  }
+
+  /// Build the control bar with mic button that triggers speech recognition
+  Widget _buildControlBar() {
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: 20 + MediaQuery.of(context).padding.bottom,
+        top: 16,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.black.withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Microphone button - TRIGGERS SPEECH RECOGNITION
+          _controlButton(
+            icon: _isListening ? PhosphorIcons.microphoneSlash() : PhosphorIcons.microphone(),
+            label: _isListening ? 'Stop' : 'Speak',
+            isActive: _isListening,
+            color: _isListening ? Colors.red : Colors.teal,
+            onTap: () {
+              if (_isListening) {
+                // Stop listening
+                _speech.stop();
+                // Process whatever was recognized
+                if (_lastUserQuestion.isNotEmpty) {
+                  _onSpeechResult(_lastUserQuestion);
+                } else {
+                  setState(() {
+                    _isListening = false;
+                    _ecobotPose = EcoBotPose.disappointed;
+                  });
+                }
+              } else {
+                // Start listening
+                _handleVoiceInput();
+              }
+            },
+          ),
+          
+          // Camera toggle
+          _controlButton(
+            icon: _roomService.isCameraOff 
+              ? PhosphorIcons.videoSlash() 
+              : PhosphorIcons.videoCamera(),
+            label: 'Camera',
+            isActive: !_roomService.isCameraOff,
+            onTap: _roomService.toggleCamera,
+          ),
+          
+          // Help/Prompts button
+          _controlButton(
+            icon: PhosphorIcons.lightbulb(),
+            label: 'Help',
+            isActive: _showPrompts,
+            color: Colors.amber,
+            onTap: _togglePrompts,
+          ),
+          
+          // End call
+          _controlButton(
+            icon: PhosphorIcons.phoneDisconnect(),
+            label: 'End',
+            isActive: false,
+            color: Colors.red,
+            onTap: () async {
+              await _roomService.disconnect();
+              if (mounted) Navigator.pop(context);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -795,83 +1018,12 @@ class _LiveAiScreenState extends State<LiveAiScreen>
     );
   }
 
-  // ── Control Bar ──────────────────────────────────────────────
-
-  Widget _buildControlBar() {
-    final local = _roomService.localParticipant;
-    final micEnabled = local?.isMicrophoneEnabled() ?? false;
-    final camEnabled = local?.isCameraEnabled() ?? false;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [Colors.black.withOpacity(0.9), Colors.transparent],
-        ),
-      ),
-      child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Mic button (primary action)
-            _controlButton(
-              icon: _isListening ? Icons.mic : (micEnabled ? Icons.mic : Icons.mic_off),
-              label: _isListening ? 'Listening' : (micEnabled ? 'Mute' : 'Unmute'),
-              isActive: micEnabled || _isListening,
-              isPrimary: true,
-              isPulsing: _isListening,
-              onTap: _isListening ? null : _handleVoiceInput,
-            ),
-            
-            // Camera toggle
-            _controlButton(
-              icon: camEnabled ? Icons.videocam : Icons.videocam_off,
-              label: camEnabled ? 'Camera' : 'Camera Off',
-              isActive: camEnabled,
-              onTap: _roomService.toggleCamera,
-            ),
-            
-            // Switch camera
-            _controlButton(
-              icon: Icons.flip_camera_ios,
-              label: 'Switch',
-              isActive: true,
-              onTap: _roomService.switchCamera,
-            ),
-            
-            // Prompts button
-            _controlButton(
-              icon: Icons.lightbulb_outline,
-              label: 'Help',
-              isActive: _showPrompts,
-              color: Colors.amber,
-              onTap: _togglePrompts,
-            ),
-            
-            // Leave call
-            _controlButton(
-              icon: Icons.call_end,
-              label: 'Leave',
-              isActive: false,
-              color: Colors.red,
-              onTap: () async {
-                await _roomService.disconnect();
-                if (mounted) Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _controlButton({
     required IconData icon,
     required String label,
     required bool isActive,
-    required VoidCallback? onTap,
+    required VoidCallback onTap,
     Color? color,
     bool isPrimary = false,
     bool isPulsing = false,
