@@ -72,8 +72,9 @@ dependencies:
   qr_flutter: ^4.1.0
   # Gemini Live WebSocket + audio
   web_socket_channel: ^3.0.1
-  record: ^5.2.0
+  flutter_sound: ^9.15.0
   just_audio: ^0.9.42
+  path_provider: ^2.1.0
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
   flutter_test:
