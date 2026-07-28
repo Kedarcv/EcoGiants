@@ -66,6 +66,16 @@ class LiveKitRoomService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<Participant> get participants => _participants;
   Room get room => _room;
+  
+  bool get isCameraOff {
+    if (_room.localParticipant == null) return true;
+    return !_room.localParticipant!.isCameraEnabled();
+  }
+  
+  bool get isMicrophoneOff {
+    if (_room.localParticipant == null) return true;
+    return !_room.localParticipant!.isMicrophoneEnabled();
+  }
 
   LiveKitRoomService() {
     _room = Room(
