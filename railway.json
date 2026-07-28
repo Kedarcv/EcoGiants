@@ -1,0 +1,6 @@
+{
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "eco_giant_agent/Dockerfile"
+  }
+}
