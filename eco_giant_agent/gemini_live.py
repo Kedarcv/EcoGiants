@@ -52,6 +52,7 @@ class GeminiLive:
         try:
           async with self.client.aio.live.connect(model=self.model, config=config) as session:
             logger.info("Gemini Live session opened successfully")
+            await event_queue.put({"type": "ready"})
             
             async def send_audio():
                 try:

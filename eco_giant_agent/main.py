@@ -301,7 +301,10 @@ async def websocket_endpoint(websocket: WebSocket):
     text_input_queue = asyncio.Queue()
 
     async def audio_output_callback(data):
-        await websocket.send_bytes(data)
+        try:
+            await websocket.send_bytes(data)
+        except Exception:
+            pass
 
     gemini_client = GeminiLive(
         api_key=GEMINI_API_KEY,
@@ -309,10 +312,17 @@ async def websocket_endpoint(websocket: WebSocket):
         input_sample_rate=16000,
     )
 
+    client_disconnected = False
+
     async def receive_from_client():
+        nonlocal client_disconnected
         try:
             while True:
                 message = await websocket.receive()
+                if message.get("type") == "websocket.disconnect":
+                    client_disconnected = True
+                    logger.info("WebSocket disconnect received")
+                    break
                 if message.get("bytes"):
                     await audio_input_queue.put(message["bytes"])
                 elif message.get("text"):
@@ -327,8 +337,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         pass
                     await text_input_queue.put(message["text"])
         except WebSocketDisconnect:
+            client_disconnected = True
             logger.info("WebSocket disconnected")
         except Exception as e:
+            client_disconnected = True
             logger.error(f"Error receiving from client: {e}")
 
     receive_task = asyncio.create_task(receive_from_client())
@@ -340,19 +352,21 @@ async def websocket_endpoint(websocket: WebSocket):
             text_input_queue=text_input_queue,
             audio_output_callback=audio_output_callback,
         ):
-            if event:
-                await websocket.send_json(event)
+            if event and not client_disconnected:
+                try:
+                    await websocket.send_json(event)
+                except Exception:
+                    break
 
     try:
         await run_session()
     except Exception as e:
-        import traceback
-        logger.error(f"Gemini session error: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+        logger.error(f"Gemini session error: {type(e).__name__}: {e}")
     finally:
         receive_task.cancel()
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass
 
 

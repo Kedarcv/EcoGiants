@@ -9,6 +9,7 @@ class GeminiLiveService {
   bool _connected = false;
   bool _connecting = false;
   String? _errorMessage;
+  Completer<void>? _readyCompleter;
 
   final StreamController<Uint8List> _audioOutputController =
       StreamController<Uint8List>.broadcast();
@@ -25,6 +26,7 @@ class GeminiLiveService {
     if (_connecting) return;
     _connecting = true;
     _errorMessage = null;
+    _readyCompleter = Completer<void>();
 
     try {
       final wsUrl = ApiService.baseUrl
@@ -35,8 +37,6 @@ class GeminiLiveService {
       _channel = WebSocketChannel.connect(uri);
 
       await _channel!.ready;
-      _connected = true;
-      _connecting = false;
 
       _channel!.stream.listen(
         (data) {
@@ -45,6 +45,11 @@ class GeminiLiveService {
           } else if (data is String) {
             try {
               final event = jsonDecode(data) as Map<String, dynamic>;
+              if (event['type'] == 'ready') {
+                _connected = true;
+                _connecting = false;
+                _readyCompleter?.complete();
+              }
               _eventController.add(event);
             } catch (_) {}
           }
@@ -53,6 +58,7 @@ class GeminiLiveService {
           _errorMessage = error.toString();
           _connected = false;
           _connecting = false;
+          _readyCompleter?.completeError(error);
         },
         onDone: () {
           _connected = false;
@@ -60,6 +66,8 @@ class GeminiLiveService {
         },
         cancelOnError: false,
       );
+
+      await _readyCompleter!.future.timeout(const Duration(seconds: 30));
     } catch (e) {
       _connected = false;
       _connecting = false;
