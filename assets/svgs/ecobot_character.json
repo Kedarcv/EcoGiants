@@ -1,0 +1,68 @@
+{
+  "name": "ecobot_character",
+  "description": "Duolingo-style EcoBot mascot - friendly eco warrior character",
+  "style_guide": {
+    "shape_language": {
+      "primary": "rounded circles and soft curves",
+      "secondary": "leaf-shaped elements",
+      "tertiary": "recycling symbol motifs"
+    },
+    "character_design": {
+      "head": {
+        "shape": "slightly elongated circle",
+        "proportions": "1:1.2 width to height",
+        "features": "large expressive eyes, small smile"
+      },
+      "eyes": {
+        "style": "large oval with thick outlines",
+        "pupil": "solid black circle with white highlight",
+        "eyebrows": "simple curved lines above eyes",
+        "expressions": ["happy", "curious", "excited", "thinking", "celebrating"]
+      },
+      "body": {
+        "type": "pear-shaped torso",
+        "arms": "simple rounded tubes with mitt hands",
+        "legs": "short stubby cylinders",
+        "colors": ["#2DD4BF", "#14B8A6", "#0D9488"]
+      },
+      "accessories": {
+        "leaf_crown": "three green leaves on head",
+        "recycling_badge": "recycling symbol on chest"
+      }
+    },
+    "color_palette": {
+      "primary": "#2DD4BF",
+      "secondary": "#10B981",
+      "accent": "#F59E0B",
+      "outline": "#1F2937",
+      "highlight": "#FFFFFF"
+    }
+  },
+  "poses": [
+    {
+      "name": "greeting",
+      "description": "One arm raised in wave, big smile",
+      "use_case": "welcome screen, initial greeting"
+    },
+    {
+      "name": "listening",
+      "description": "Hand cupped to ear, curious expression",
+      "use_case": "when user is speaking"
+    },
+    {
+      "name": "teaching",
+      "description": "Pointing finger up, confident smile",
+      "use_case": "explaining concepts"
+    },
+    {
+      "name": "celebrating",
+      "description": "Both arms raised, jumping pose",
+      "use_case": "correct answer, level up"
+    },
+    {
+      "name": "thinking",
+      "description": "Hand on chin, thoughtful expression",
+      "use_case": "processing question"
+    }
+  ]
+}
