@@ -566,7 +566,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                           _ecobotPose == EcoBotPose.teaching ? Icons.school :
                           _ecobotPose == EcoBotPose.thinking ? Icons.lightbulb :
                           _ecobotPose == EcoBotPose.disappointed ? Icons.sentiment_dissatisfied :
-                          _ecobotPose == EcoBotPose.surprised ? Icons.sentiment_surprised : Icons.eco,
+                          _ecobotPose == EcoBotPose.surprised ? Icons.sentiment_very_surprised : Icons.eco,
                           color: Colors.white,
                           size: 18,
                         ),
@@ -721,8 +721,8 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                       color: Colors.teal.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      PhosphorIcons.robot,
+                    child: PhosphorIcon(
+                      PhosphorIcons.robot(PhosphorIconsStyle.fill),
                       color: Colors.teal,
                       size: 24,
                     ),
@@ -815,8 +815,8 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                       color: Colors.teal.withOpacity(0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      PhosphorIcons.microphone,
+                    child: PhosphorIcon(
+                      PhosphorIcons.microphone(PhosphorIconsStyle.fill),
                       color: Colors.teal,
                       size: 48,
                     ),
@@ -887,7 +887,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
         children: [
           // Microphone button - TRIGGERS SPEECH RECOGNITION
           _controlButton(
-            icon: _isListening ? PhosphorIcons.microphoneSlash() : PhosphorIcons.microphone(),
+            icon: _isListening ? PhosphorIcons.microphoneSlash() : PhosphorIcons.microphone(PhosphorIconsStyle.fill),
             label: _isListening ? 'Stop' : 'Speak',
             isActive: _isListening,
             color: _isListening ? Colors.red : Colors.teal,
@@ -915,7 +915,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
           _controlButton(
             icon: _roomService.isCameraOff 
               ? PhosphorIcons.videoSlash() 
-              : PhosphorIcons.videoCamera(),
+              : PhosphorIcons.videoCamera(PhosphorIconsStyle.fill),
             label: 'Camera',
             isActive: !_roomService.isCameraOff,
             onTap: _roomService.toggleCamera,
@@ -923,7 +923,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
           
           // Help/Prompts button
           _controlButton(
-            icon: PhosphorIcons.lightbulb(),
+            icon: PhosphorIcons.lightbulb(PhosphorIconsStyle.fill),
             label: 'Help',
             isActive: _showPrompts,
             color: Colors.amber,
@@ -932,7 +932,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
           
           // End call
           _controlButton(
-            icon: PhosphorIcons.phoneDisconnect(),
+            icon: PhosphorIcons.phoneDisconnect(PhosphorIconsStyle.fill),
             label: 'End',
             isActive: false,
             color: Colors.red,
@@ -967,8 +967,8 @@ class _LiveAiScreenState extends State<LiveAiScreen>
             children: [
               Row(
                 children: [
-                  const Icon(
-                    PhosphorIcons.lightbulb,
+                  PhosphorIcon(
+                    PhosphorIcons.lightbulb(),
                     color: Colors.amber,
                     size: 20,
                   ),
@@ -998,8 +998,8 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                   return ActionChip(
                     backgroundColor: Colors.teal.withOpacity(0.2),
                     side: BorderSide(color: Colors.teal.withOpacity(0.3)),
-                    avatar: const Icon(
-                      PhosphorIcons.chatTeardrop,
+                    avatar: PhosphorIcon(
+                      PhosphorIcons.chat_teardrop(),
                       color: Colors.teal,
                       size: 18,
                     ),

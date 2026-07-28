@@ -18,6 +18,7 @@ import 'package:deep_waste/screens/EcoBotChatScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
 import 'package:deep_waste/screens/LiveAiPrejoinScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
+import 'package:deep_waste/screens/SettingsScreen.dart';
 import 'package:deep_waste/screens/UserScreen.dart';
 import 'package:deep_waste/screens/QRScannerScreen.dart';
 import 'package:fab_circular_menu/fab_circular_menu.dart';
@@ -282,9 +283,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                 backgroundColor: Colors.white.withOpacity(0.3),
                                 backgroundImage: user?.profileImage != null && user!.profileImage!.isNotEmpty
                                     ? FileImage(File(user!.profileImage!))
-                                    : null,
+                                    : const AssetImage('assets/icons/icon.png') as ImageProvider,
                                 child: user?.profileImage == null || user!.profileImage!.isEmpty
-                                    ? Icon(Icons.person, size: 32, color: Colors.white.withOpacity(0.8))
+                                    ? const Icon(Icons.person, size: 32, color: Colors.white)
                                     : null,
                               ),
                               const SizedBox(width: 12),
@@ -640,14 +641,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  Icon(PhosphorIcons.trophy, color: Colors.amber.shade700, size: 24),
+                  PhosphorIcon(PhosphorIcons.trophy(PhosphorIconsStyle.fill), color: Colors.amber.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     '🏆 Champions',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.amber.shade900,
+                      color: Colors.amber.shade800,
                     ),
                   ),
                   const Spacer(),
@@ -720,14 +721,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  Icon(PhosphorIcons.bellRinging, color: Colors.teal.shade700, size: 24),
+                  PhosphorIcon(PhosphorIcons.bell_ringing(PhosphorIconsStyle.fill), color: Colors.teal.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     'Latest Updates',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade900,
+                      color: Colors.teal.shade800,
                     ),
                   ),
                 ],
@@ -787,14 +788,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  Icon(PhosphorIcons.crown, color: Colors.green.shade700, size: 24),
+                  PhosphorIcon(PhosphorIcons.crown(PhosphorIconsStyle.fill), color: Colors.green.shade700, size: 24),
                   const SizedBox(width: 8),
                   Text(
                     'Your Journey',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green.shade900,
+                      color: Colors.green.shade800,
                     ),
                   ),
                 ],
@@ -824,7 +825,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.green.shade900,
+                              color: Colors.green.shade800,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -838,8 +839,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ],
                       ),
                     ),
-                    Icon(
-                      PhosphorIcons.trendUp,
+                    PhosphorIcon(
+                      PhosphorIcons.trend_up(PhosphorIconsStyle.fill),
                       color: Colors.green.shade700,
                       size: 28,
                     ),
@@ -1004,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: color.shade900,
+                    color: color.withOpacity(0.9),
                   ),
                 ),
                 Text(
