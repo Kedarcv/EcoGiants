@@ -566,7 +566,7 @@ class _LiveAiScreenState extends State<LiveAiScreen>
                           _ecobotPose == EcoBotPose.teaching ? Icons.school :
                           _ecobotPose == EcoBotPose.thinking ? Icons.lightbulb :
                           _ecobotPose == EcoBotPose.disappointed ? Icons.sentiment_dissatisfied :
-                          _ecobotPose == EcoBotPose.surprised ? Icons.sentiment_very_surprised : Icons.eco,
+                          _ecobotPose == EcoBotPose.surprised ? Icons.sentiment_satisfied_alt : Icons.eco,
                           color: Colors.white,
                           size: 18,
                         ),

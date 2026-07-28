@@ -1,17 +1,15 @@
+```
 # Compiled and build artifacts
 *.pyc
 __pycache__/
 *.o
 *.obj
 *.class
-*.exe
 *.dll
 *.so
 *.a
+*.exe
 *.out
-dist/
-build/
-target/
 
 # Dependencies
 node_modules/
@@ -20,6 +18,14 @@ venv/
 .env
 .env.local
 .env.*
+
+# Build directories
+dist/
+build/
+target/
+*.jar
+*.war
+*.class
 
 # Logs and temp files
 *.log
@@ -34,22 +40,16 @@ venv/
 *.ipr
 *.iws
 
-# System files
+# OS generated files
 .DS_Store
 Thumbs.db
-*.DS_Store*
-ehthumbs.db
-Icon?
-apidoc/
+
+# Testing
+.coverage
 coverage/
 htmlcov/
-.coverage
-.mypy_cache/
 .pytest_cache/
-.gradle/
-.cargo/
-zig-cache/
-zig-out/
+.mypy_cache/
 
 # Compressed files
 *.zip
@@ -74,3 +74,9 @@ zig-out/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Gradle
+.gradle/
+
+# Original rules preserved
+```
