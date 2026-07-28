@@ -1,0 +1,31 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Disappointed Pose: Slumped shoulders, downturned mouth, sad eyes -->
+  
+  <!-- Body (slightly slumped) -->
+  <path d="M65 145 C65 145 55 175 55 185 C55 195 65 195 75 190 L85 185" stroke="#2ECC71" stroke-width="12" stroke-linecap="round"/>
+  <path d="M135 145 C135 145 145 175 145 185 C145 195 135 195 125 190 L115 185" stroke="#2ECC71" stroke-width="12" stroke-linecap="round"/>
+  <ellipse cx="100" cy="135" rx="50" ry="55" fill="#2ECC71"/>
+  
+  <!-- Arms Down (slumped) -->
+  <path d="M60 135 Q50 150 50 170" stroke="#2ECC71" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <circle cx="50" cy="170" r="12" fill="#2ECC71"/>
+  
+  <path d="M140 135 Q150 150 150 170" stroke="#2ECC71" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <circle cx="150" cy="170" r="12" fill="#2ECC71"/>
+  
+  <!-- Sad Eyes (looking down) -->
+  <ellipse cx="85" cy="120" rx="8" ry="10" fill="white"/>
+  <ellipse cx="115" cy="120" rx="8" ry="10" fill="white"/>
+  <circle cx="85" cy="123" r="4" fill="#2C3E50"/>
+  <circle cx="115" cy="123" r="4" fill="#2C3E50"/>
+  
+  <!-- Eyebrows (angled down) -->
+  <path d="M75 108 Q85 113 95 108" stroke="#2C3E50" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M105 108 Q115 113 125 108" stroke="#2C3E50" stroke-width="3" stroke-linecap="round" fill="none"/>
+  
+  <!-- Downturned Mouth -->
+  <path d="M90 150 Q100 145 110 150" stroke="#2C3E50" stroke-width="4" stroke-linecap="round" fill="none"/>
+  
+  <!-- Sweat Drop (nervous/disappointed) -->
+  <path d="M130 100 Q135 95 135 105 Q135 115 130 115 Q125 115 125 105 Q125 100 130 100" fill="#5DADE2" opacity="0.8"/>
+</svg>

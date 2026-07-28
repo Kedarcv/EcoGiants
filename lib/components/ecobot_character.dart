@@ -31,6 +31,9 @@ enum EcoBotPose {
   celebrating,
   listening,
   teaching,
+  thinking,
+  disappointed,
+  surprised,
 }
 
 class _EcoBotCharacterState extends State<EcoBotCharacter>
@@ -50,6 +53,12 @@ class _EcoBotCharacterState extends State<EcoBotCharacter>
         return 'assets/svgs/ecobot_listening.svg';
       case EcoBotPose.teaching:
         return 'assets/svgs/ecobot_teaching.svg';
+      case EcoBotPose.thinking:
+        return 'assets/svgs/ecobot_thinking.svg';
+      case EcoBotPose.disappointed:
+        return 'assets/svgs/ecobot_disappointed.svg';
+      case EcoBotPose.surprised:
+        return 'assets/svgs/ecobot_surprised.svg';
     }
   }
 
@@ -87,6 +96,8 @@ class _EcoBotCharacterState extends State<EcoBotCharacter>
       _bounceController.repeat(reverse: true);
     } else if (widget.animated && widget.pose == EcoBotPose.waving) {
       _bounceController.repeat(reverse: true);
+    } else if (widget.animated && widget.pose == EcoBotPose.surprised) {
+      _bounceController.repeat(reverse: true);
     }
 
     _glowController.repeat(reverse: true);
@@ -100,7 +111,9 @@ class _EcoBotCharacterState extends State<EcoBotCharacter>
       _bounceController.stop();
       
       if (widget.animated && 
-          (widget.pose == EcoBotPose.celebrating || widget.pose == EcoBotPose.waving)) {
+          (widget.pose == EcoBotPose.celebrating || 
+           widget.pose == EcoBotPose.waving ||
+           widget.pose == EcoBotPose.surprised)) {
         _bounceController.repeat(reverse: true);
       }
     }

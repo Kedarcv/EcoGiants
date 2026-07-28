@@ -1,0 +1,37 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Surprised Pose: Wide eyes, open mouth, arms out -->
+  
+  <!-- Body -->
+  <path d="M60 140 C60 140 50 170 50 180 C50 190 60 190 70 185 L80 180" stroke="#2ECC71" stroke-width="12" stroke-linecap="round"/>
+  <path d="M140 140 C140 140 150 170 150 180 C150 190 140 190 130 185 L120 180" stroke="#2ECC71" stroke-width="12" stroke-linecap="round"/>
+  <ellipse cx="100" cy="130" rx="50" ry="60" fill="#2ECC71"/>
+  
+  <!-- Arms Out (surprised gesture) -->
+  <path d="M60 130 Q30 120 20 130 Q10 140 30 150" stroke="#2ECC71" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <circle cx="30" cy="150" r="12" fill="#2ECC71"/>
+  
+  <path d="M140 130 Q170 120 180 130 Q190 140 170 150" stroke="#2ECC71" stroke-width="12" stroke-linecap="round" fill="none"/>
+  <circle cx="170" cy="150" r="12" fill="#2ECC71"/>
+  
+  <!-- Wide Eyes (very surprised) -->
+  <ellipse cx="85" cy="115" rx="12" ry="14" fill="white"/>
+  <ellipse cx="115" cy="115" rx="12" ry="14" fill="white"/>
+  <circle cx="85" cy="115" r="5" fill="#2C3E50"/>
+  <circle cx="115" cy="115" r="5" fill="#2C3E50"/>
+  <circle cx="88" cy="112" r="3" fill="white"/>
+  <circle cx="118" cy="112" r="3" fill="white"/>
+  
+  <!-- Raised Eyebrows -->
+  <path d="M70 98 Q85 90 100 98" stroke="#2C3E50" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M100 98 Q115 90 130 98" stroke="#2C3E50" stroke-width="3" stroke-linecap="round" fill="none"/>
+  
+  <!-- Open Mouth (O shape) -->
+  <ellipse cx="100" cy="150" rx="10" ry="12" fill="#2C3E50"/>
+  
+  <!-- Exclamation marks floating -->
+  <path d="M160 80 L160 95" stroke="#F39C12" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="160" cy="102" r="3" fill="#F39C12"/>
+  
+  <path d="M40 80 L40 95" stroke="#F39C12" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="40" cy="102" r="3" fill="#F39C12"/>
+</svg>
