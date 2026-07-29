@@ -4,11 +4,13 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:audio_session/audio_session.dart';
 import 'package:camera/camera.dart';
+import 'package:deep_waste/components/ecobot_character.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/services/gemini_live_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sound/flutter_sound.dart' hide AudioSource;
 import 'package:just_audio/just_audio.dart';
+import 'package:lottie/lottie.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -561,60 +563,116 @@ class _LiveAiScreenState extends State<LiveAiScreen>
 
   Widget _buildAgentAvatar() {
     final speaking = _state == AgentUiState.agentSpeaking;
+    final listening = _state == AgentUiState.listening;
     final connecting = _state == AgentUiState.connecting;
 
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        final scale = speaking ? _pulseAnimation.value : 1.0;
-        return Transform.scale(
-          scale: scale,
-          child: child,
-        );
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: speaking ? 150 : 120,
-        height: speaking ? 150 : 120,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF0D9488),
-              speaking ? const Color(0xFF14B8A6) : const Color(0xFF0F766E),
-            ],
-          ),
-          boxShadow: [
-            if (speaking)
-              BoxShadow(
-                color: const Color(0xFF14B8A6).withOpacity(0.6),
-                blurRadius: 36,
-                spreadRadius: 6,
-              )
-            else
-              BoxShadow(
-                color: const Color(0xFF0D9488).withOpacity(0.4),
-                blurRadius: 20,
-                spreadRadius: 2,
+    EcoBotPose pose;
+    if (connecting) {
+      pose = EcoBotPose.thinking;
+    } else if (speaking) {
+      pose = EcoBotPose.teaching;
+    } else if (listening) {
+      pose = EcoBotPose.listening;
+    } else {
+      pose = EcoBotPose.waving;
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            final scale = (speaking || listening) ? _pulseAnimation.value : 1.0;
+            return Transform.scale(
+              scale: scale,
+              child: child,
+            );
+          },
+          child: Container(
+            width: 170,
+            height: 170,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  speaking
+                      ? const Color(0xFF14B8A6).withOpacity(0.35)
+                      : listening
+                          ? const Color(0xFF10B981).withOpacity(0.35)
+                          : const Color(0xFF0D9488).withOpacity(0.2),
+                  Colors.transparent,
+                ],
+                stops: const [0.6, 1.0],
               ),
-          ],
-        ),
-        child: connecting
-            ? const Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
+              boxShadow: [
+                BoxShadow(
+                  color: (speaking
+                          ? const Color(0xFF14B8A6)
+                          : const Color(0xFF0D9488))
+                      .withOpacity(0.4),
+                  blurRadius: speaking ? 40 : 20,
+                  spreadRadius: speaking ? 8 : 2,
                 ),
-              )
-            : const Icon(
-                Icons.eco,
-                size: 56,
-                color: Colors.white,
-              ),
-      ),
+              ],
+            ),
+            child: Center(
+              child: connecting
+                  ? SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: Lottie.asset(
+                        'assets/lottie/loading.json',
+                        errorBuilder: (_, __, ___) =>
+                            const CircularProgressIndicator(color: Colors.white),
+                      ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF1E293B).withOpacity(0.85),
+                        border: Border.all(
+                          color: (speaking
+                                  ? const Color(0xFF14B8A6)
+                                  : const Color(0xFF0D9488))
+                              .withOpacity(0.6),
+                          width: 2,
+                        ),
+                      ),
+                      child: EcoBotCharacter(
+                        pose: pose,
+                        size: 110,
+                        animated: true,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        if (speaking) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              return AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, child) {
+                  final height = 10 + (index % 3 == 0 ? 18 * _pulseAnimation.value : 10 * _pulseAnimation.value);
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: 4,
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  );
+                },
+              );
+            }),
+          ),
+        ],
+      ],
     );
   }
 

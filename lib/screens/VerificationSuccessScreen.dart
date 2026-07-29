@@ -107,6 +107,24 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen>
                 ],
               ),
             ),
+            // Top Close / Home Button
+            Positioned(
+              top: 12,
+              left: 12,
+              child: CircleAvatar(
+                backgroundColor: Colors.grey.shade100,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF0F172A)),
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                      (route) => false,
+                    );
+                  },
+                ),
+              ),
+            ),
             // Content
             SingleChildScrollView(
               child: Padding(
@@ -370,10 +388,11 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen>
                       ),
                     ),
                     SizedBox(height: getProportionateScreenHeight(30)),
-                    // Continue Button
+                    // Return to Home Button
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
+                      height: 54,
+                      child: ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
                             context,
@@ -381,21 +400,22 @@ class _VerificationSuccessScreenState extends State<VerificationSuccessScreen>
                             (route) => false,
                           );
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                        icon: const Icon(Icons.home_rounded, size: 24),
+                        label: const Text(
+                          'Return to Home Dashboard',
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                         ),
-                        child: const Text(
-                          'Continue',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D9488),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 2,
                         ),
                       ),
                     ),
-                    SizedBox(height: getProportionateScreenHeight(20)),
+                    const SizedBox(height: 28),
                   ],
                 ),
               ),

@@ -1,14 +1,16 @@
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/models/disposal_record.dart';
+import 'package:deep_waste/screens/ClassifyScreen.dart';
 import 'package:deep_waste/screens/DisposalHistoryScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
+import 'package:deep_waste/screens/LearningScreen.dart';
 import 'package:deep_waste/screens/LiveAiPrejoinScreen.dart';
 import 'package:deep_waste/screens/QRCodeGeneratorScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 
 class HomeScreen extends StatefulWidget {
   static String routeName = "/home_screen";
@@ -25,6 +27,7 @@ class HomeScreenState extends State<HomeScreen> {
   int todayPoints = 0;
   List<DisposalRecord> recentDisposals = [];
   int totalDisposals = 0;
+  int _currentCarouselIndex = 0;
 
   @override
   void initState() {
@@ -54,33 +57,50 @@ class HomeScreenState extends State<HomeScreen> {
     SizeConfig().init(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D9488)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF16A34A)),
+            )
           : RefreshIndicator(
               onRefresh: _loadData,
-              color: const Color(0xFF0D9488),
+              color: const Color(0xFF16A34A),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(),
+                    // Top App Header
+                    _buildTopHeader(),
+
+                    const SizedBox(height: 16),
+
+                    // User Greeting
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildGreeting(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Feature Carousel Slider (Hero Image, Leaderboard, Level/Points, New Lessons)
+                    _buildFeatureCarousel(),
+
+                    const SizedBox(height: 24),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 20),
-                          _buildGreeting(),
-                          const SizedBox(height: 20),
-                          _buildSortingCard(),
+                          // Quick Action Tools (Squircle Grid)
+                          _buildQuickActionsGrid(),
+
                           const SizedBox(height: 24),
-                          _buildProgressSection(),
-                          const SizedBox(height: 24),
-                          _buildQuickActions(),
-                          const SizedBox(height: 24),
+
+                          // Recent Activity
                           _buildRecentActivity(),
+
                           const SizedBox(height: 100),
                         ],
                       ),
@@ -92,67 +112,95 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildTopHeader() {
+    final topPadding = MediaQuery.of(context).padding.top + 8;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D9488), Color(0xFF14B8A6)],
-        ),
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+            child: Align(
               alignment: Alignment.centerLeft,
               child: Image.asset(
                 'assets/images/zou.png',
-                height: 44,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.school,
-                  color: Colors.white,
-                  size: 28,
+                height: 32,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Row(
+                  children: [
+                    Icon(Icons.eco, color: Color(0xFF16A34A), size: 24),
+                    SizedBox(width: 4),
+                    Text(
+                      'ECO-GIANTS',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
           const SizedBox(width: 8),
+          // Total XP Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: const Color(0xFF4E71FF).withOpacity(0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.local_fire_department, color: Color(0xFFF59E0B), size: 16),
+                const Icon(Icons.stars_rounded, color: Color(0xFF4E71FF), size: 16),
                 const SizedBox(width: 4),
                 Text(
                   '${user?.totalPoints ?? 0} XP',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF4E71FF),
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
+          // Streak Badge
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF97316).withOpacity(0.3)),
             ),
-            child: const Icon(
-              Icons.notifications_outlined,
-              color: Colors.white,
-              size: 20,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.local_fire_department, color: Color(0xFFF97316), size: 16),
+                const SizedBox(width: 3),
+                Text(
+                  '${user?.currentStreak ?? 0}d',
+                  style: const TextStyle(
+                    color: Color(0xFFC2410C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -165,51 +213,54 @@ class HomeScreenState extends State<HomeScreen> {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, ${user?.name ?? 'Explorer'}!',
+                'Hi, ${user?.name ?? 'Eco Explorer'} 👋',
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.5,
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                'Ready to make a difference today?',
+              const Text(
+                'ZOU Green Campus & Sustainable Innovation',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
                 ),
               ),
             ],
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFECFDF5),
+            color: const Color(0xFF5CF8AD).withOpacity(0.2),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFF16A34A).withOpacity(0.3)),
           ),
           child: Row(
             children: [
               Icon(
                 User.getLevelIcon(level),
-                size: 14,
-                color: const Color(0xFF0D9488),
+                size: 16,
+                color: const Color(0xFF15803D),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Text(
                 level,
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0D9488),
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF15803D),
                 ),
               ),
             ],
@@ -219,78 +270,279 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSortingCard() {
+  Widget _buildFeatureCarousel() {
+    return Column(
+      children: [
+        CarouselSlider(
+          options: CarouselOptions(
+            height: 195,
+            viewportFraction: 0.90,
+            enlargeCenterPage: true,
+            autoPlay: true,
+            autoPlayInterval: const Duration(seconds: 5),
+            onPageChanged: (index, reason) {
+              setState(() {
+                _currentCarouselIndex = index;
+              });
+            },
+          ),
+          items: [
+            // Slide 1: Clean Generated Hero Banner Image (NO OVERLAID TEXT OR BUTTONS)
+            _buildCleanImageSlide(),
+
+            // Slide 2: Points & Level Progress Slide
+            _buildPointsAndLevelSlide(),
+
+            // Slide 3: Leaderboard Spotlight Slide
+            _buildLeaderboardSlide(),
+
+            // Slide 4: New Lessons & Quiz Slide
+            _buildNewLessonsSlide(),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Carousel Indicators
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(4, (index) {
+            final active = _currentCarouselIndex == index;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: active ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: active ? const Color(0xFF16A34A) : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  // Slide 1: Pure Hero Banner Artwork (No text or buttons overlay)
+  Widget _buildCleanImageSlide() {
     return Container(
-      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withOpacity(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Image.asset(
+          'assets/images/eco_banner_hero.png',
+          width: double.infinity,
+          height: 195,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: const Color(0xFF16A34A),
+            child: const Center(
+              child: Icon(Icons.eco, size: 60, color: Colors.white),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Slide 2: Points & Level Progress Slide
+  Widget _buildPointsAndLevelSlide() {
+    final points = user?.totalPoints ?? 0;
+    final level = user?.ecoLevel ?? 'Seedling';
+    final progress = User.getLevelProgress(points);
+    final pointsToNext = User.pointsToNextLevel(points);
+
+    return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
+          colors: [Color(0xFF16A34A), Color(0xFF22C55E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFECFDF5), Color(0xFFD1FAE5)],
         ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF16A34A).withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            width: 76,
+            height: 76,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                const Text(
-                  'Ready for sorting?',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF065F46),
-                  ),
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 8,
+                  backgroundColor: Colors.white.withOpacity(0.25),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.amberAccent),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Scan items to sort them correctly and earn points for your eco journey!',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LiveAiPrejoinScreen()),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D9488),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Center(
+                  child: Text(
+                    '${(progress * 100).toInt()}%',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    "Let's start!",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Icon(User.getLevelIcon(level), color: Colors.white, size: 22),
+                    const SizedBox(width: 6),
+                    Text(
+                      level.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$points XP Points',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  pointsToNext > 0
+                      ? '$pointsToNext points to next level'
+                      : 'Top Level Achieved! Champion!',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Slide 3: Leaderboard Spotlight Slide
+  Widget _buildLeaderboardSlide() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF7C3AED), Color(0xFF6D28D9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.emoji_events, color: Colors.amberAccent, size: 26),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ZOU CAMPUS LEADERBOARD',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Top Eco Champions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Compete with ZOU students across departments & win tech prizes!',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 14),
           SizedBox(
-            width: 100,
-            height: 100,
-            child: Lottie.asset(
-              'assets/lottie/recycling.json',
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.recycling,
-                size: 60,
-                color: Color(0xFF0D9488),
+            height: 38,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                );
+              },
+              icon: const Text(
+                'View Leaderboard Rankings',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF6D28D9)),
+              ),
+              label: const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF6D28D9)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
               ),
             ),
           ),
@@ -299,146 +551,149 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProgressSection() {
-    final points = user?.totalPoints ?? 0;
-    final level = user?.ecoLevel ?? 'Seedling';
-    final progress = User.getLevelProgress(points);
-    final pointsToNext = User.pointsToNextLevel(points);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'My Progress',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
-          ),
+  // Slide 4: New Lessons & Eco Tutor Slide
+  Widget _buildNewLessonsSlide() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D9488), Color(0xFF0284C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D9488).withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-          child: Row(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
             children: [
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 8,
-                      backgroundColor: const Color(0xFFE5E7EB),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
-                    ),
-                    Center(
-                      child: Text(
-                        '${(progress * 100).toInt()}%',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D9488),
-                        ),
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
                 ),
+                child: const Icon(Icons.school, color: Colors.white, size: 26),
               ),
-              const SizedBox(width: 20),
-              Expanded(
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      level,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$points points earned',
+                      'NEW LESSONS & QUIZZES',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade500,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white70,
+                        letterSpacing: 1.5,
                       ),
                     ),
-                    if (pointsToNext > 0) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '$pointsToNext points to next level',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF0D9488),
-                          fontWeight: FontWeight.w500,
-                        ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Sustainable Innovation 2026',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          Text(
+            'Learn waste management best practices, take quick quizzes & earn extra XP!',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 38,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LearningScreen()),
+                );
+              },
+              icon: const Text(
+                'Explore Green Lessons',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0D9488)),
+              ),
+              label: const Icon(Icons.arrow_forward, size: 16, color: Color(0xFF0D9488)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActionsGrid() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Quick Actions',
+          'Quick Tools',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
+            color: Color(0xFF0F172A),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Row(
           children: [
-            _buildActionCard(
-              icon: Icons.history,
-              label: 'History',
-              color: const Color(0xFF3B82F6),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DisposalHistoryScreen()),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _buildActionCard(
-              icon: Icons.emoji_events,
-              label: 'Rewards',
-              color: const Color(0xFFF59E0B),
+            _buildSquircleActionItem(
+              icon: Icons.card_giftcard,
+              label: 'My Gifts',
+              bgColor: const Color(0xFFEEF2FF),
+              accentColor: const Color(0xFF4E71FF),
+              dotColor: const Color(0xFF4E71FF),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RewardsScreen()),
               ),
             ),
             const SizedBox(width: 12),
-            _buildActionCard(
-              icon: Icons.leaderboard,
+            _buildSquircleActionItem(
+              icon: Icons.qr_code_scanner,
+              label: 'AI Classify',
+              bgColor: const Color(0xFFE6F9F0),
+              accentColor: const Color(0xFF16A34A),
+              dotColor: const Color(0xFF5CF8AD),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ClassifyScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildSquircleActionItem(
+              icon: Icons.emoji_events_outlined,
               label: 'Leaderboard',
-              color: const Color(0xFF8B5CF6),
+              bgColor: const Color(0xFFFEF3C7),
+              accentColor: const Color(0xFFD97706),
+              dotColor: const Color(0xFFF7E3C5),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
@@ -449,10 +704,36 @@ class HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            _buildActionCard(
-              icon: Icons.qr_code,
-              label: 'Test QR',
-              color: const Color(0xFF0D9488),
+            _buildSquircleActionItem(
+              icon: Icons.history_rounded,
+              label: 'History',
+              bgColor: const Color(0xFFF5F3FF),
+              accentColor: const Color(0xFF7C3AED),
+              dotColor: const Color(0xFF7C3AED),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DisposalHistoryScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildSquircleActionItem(
+              icon: Icons.psychology_outlined,
+              label: 'Live AI Tutor',
+              bgColor: const Color(0xFFECFDF5),
+              accentColor: const Color(0xFF0D9488),
+              dotColor: const Color(0xFF10B981),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LiveAiPrejoinScreen()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _buildSquircleActionItem(
+              icon: Icons.qr_code_2_rounded,
+              label: 'Test Bin QR',
+              bgColor: const Color(0xFFF1F5F9),
+              accentColor: const Color(0xFF535068),
+              dotColor: const Color(0xFF535068),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const QRCodeGeneratorScreen()),
@@ -464,45 +745,67 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildSquircleActionItem({
     required IconData icon,
     required String label,
-    required Color color,
+    required Color bgColor,
+    required Color accentColor,
+    required Color dotColor,
     required VoidCallback onTap,
   }) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          height: 104,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Column(
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(icon, color: accentColor, size: 24),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -522,43 +825,43 @@ class HomeScreenState extends State<HomeScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
+              color: Color(0xFF0F172A),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
             child: Column(
               children: [
                 Icon(
-                  Icons.recycling,
+                  Icons.recycling_rounded,
                   size: 48,
                   color: Colors.grey.shade300,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
-                  'No activity yet',
+                  'No waste disposals recorded yet',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Start sorting to see your history here!',
+                  'Scan a bin QR code to earn your first XP points!',
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey.shade400,
@@ -578,11 +881,11 @@ class HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Recent Activity',
+              'Recent Disposals',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1F2937),
+                color: Color(0xFF0F172A),
               ),
             ),
             TextButton(
@@ -590,119 +893,86 @@ class HomeScreenState extends State<HomeScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const DisposalHistoryScreen()),
               ),
-              child: const Text('View all'),
+              child: const Text(
+                'See All',
+                style: TextStyle(
+                  color: Color(0xFF16A34A),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        ...recentDisposals.take(3).map((record) => _buildActivityItem(record)),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: recentDisposals.length,
+          itemBuilder: (context, index) {
+            final record = recentDisposals[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16A34A).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          record.binName ?? '${record.category} Bin',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          record.category,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '+${record.pointsAwarded} XP',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ],
     );
-  }
-
-  Widget _buildActivityItem(DisposalRecord record) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _getCategoryColor(record.category).withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _getCategoryIcon(record.category),
-              size: 18,
-              color: _getCategoryColor(record.category),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.category,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                Text(
-                  _formatDate(record.timestamp),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '+${record.pointsAwarded} pts',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D9488),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    switch (category.toLowerCase()) {
-      case 'recyclable': return const Color(0xFF3B82F6);
-      case 'organic': return const Color(0xFF10B981);
-      case 'e-waste': return const Color(0xFF8B5CF6);
-      case 'hazardous': return const Color(0xFFEF4444);
-      default: return const Color(0xFF6B7280);
-    }
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'recyclable': return Icons.recycling;
-      case 'organic': return Icons.eco;
-      case 'e-waste': return Icons.devices;
-      case 'hazardous': return Icons.warning;
-      default: return Icons.delete_outline;
-    }
-  }
-
-  String _formatDate(String timestamp) {
-    try {
-      final date = DateTime.parse(timestamp);
-      final now = DateTime.now();
-      final diff = now.difference(date);
-      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      if (diff.inDays < 7) return '${diff.inDays}d ago';
-      return '${date.month}/${date.day}/${date.year}';
-    } catch (_) {
-      return timestamp;
-    }
   }
 }

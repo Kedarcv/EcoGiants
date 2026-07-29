@@ -1,8 +1,8 @@
-import 'dart:math';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/models/disposal_record.dart';
+import 'package:deep_waste/screens/MainNavigationScreen.dart';
 import 'package:deep_waste/screens/VerificationSuccessScreen.dart';
 import 'package:deep_waste/services/api_service.dart';
 import 'package:flutter/material.dart';
@@ -26,9 +26,12 @@ class QRScannerScreen extends StatefulWidget {
 
 class _QRScannerScreenState extends State<QRScannerScreen> {
   bool _isProcessing = false;
-  MobileScannerController controller = MobileScannerController(
+  bool _torchOn = false;
+
+  final MobileScannerController controller = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
+    torchEnabled: false,
   );
 
   @override
@@ -48,7 +51,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
     if (value != null && value.isNotEmpty) {
       setState(() => _isProcessing = true);
-      controller.stop();
       _verifyQR(value);
     }
   }
@@ -57,66 +59,63 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     try {
       HapticFeedback.mediumImpact();
 
-      // Parse QR format: EG_{BIN_ID}_{CATEGORY}_{TIMESTAMP}_{CHECKSUM}
-      final parts = qrData.split('_');
-      if (parts.length < 5 || parts[0] != 'EG') {
-        _showError('Invalid QR code format');
-        return;
+      final cleanData = qrData.trim();
+      String qrCategory = 'General';
+
+      final parts = cleanData.split('_');
+      if (parts.length >= 3 && parts[0] == 'EG') {
+        final categoryCode = parts[2].toUpperCase();
+        final categoryMap = {
+          'REC': 'Recyclable',
+          'ORG': 'Organic',
+          'EWA': 'E-Waste',
+          'GEN': 'General',
+          'HAZ': 'Hazardous',
+        };
+        qrCategory = categoryMap[categoryCode] ?? 'General';
+      } else {
+        final lower = cleanData.toLowerCase();
+        if (lower.contains('rec') || lower.contains('plastic') || lower.contains('paper') || lower.contains('glass') || lower.contains('metal')) {
+          qrCategory = 'Recyclable';
+        } else if (lower.contains('org') || lower.contains('food') || lower.contains('compost')) {
+          qrCategory = 'Organic';
+        } else if (lower.contains('ewa') || lower.contains('tech') || lower.contains('battery') || lower.contains('device')) {
+          qrCategory = 'E-Waste';
+        } else if (lower.contains('haz') || lower.contains('chemical') || lower.contains('spray')) {
+          qrCategory = 'Hazardous';
+        } else {
+          qrCategory = 'General';
+        }
       }
 
-      final String binId = parts[1];
-      final String categoryCode = parts[2];
-      final String timestampStr = parts[3];
-
-      // Map category code to name
-      final categoryMap = {
-        'REC': 'Recyclable',
-        'ORG': 'Organic',
-        'EWA': 'E-Waste',
-        'GEN': 'General',
-        'HAZ': 'Hazardous',
-      };
-      final String qrCategory = categoryMap[categoryCode] ?? 'General';
-
-      // Check if QR category matches expected classification
+      // Validate category match
       if (qrCategory.toLowerCase() != widget.expectedCategory.toLowerCase()) {
-        _showError('This bin is for $qrCategory, not ${widget.expectedCategory}. Please find the correct bin.');
+        _showError('Scanned QR is for $qrCategory waste, but you selected ${widget.expectedCategory}. Please scan the ${widget.expectedCategory} bin QR code.');
         return;
       }
 
-      // Check QR expiry (30 days for printed bin QR codes)
-      final int qrTimestamp = int.tryParse(timestampStr) ?? 0;
-      final int nowTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      if (nowTimestamp - qrTimestamp > 2592000) {
-        _showError('QR code has expired. Please get a new QR code from the bin.');
-        return;
-      }
-
-      // Get user
+      // Get user profile
       final user = await DatabaseManager.instance.getUser();
       if (user == null) {
-        _showError('User not found. Please create a profile first.');
+        _showError('User profile not found. Please setup your profile first.');
         return;
       }
 
-      // Check daily points cap (200/day)
+      // Check daily points cap
       final todayPoints = await DatabaseManager.instance.getTodayPoints();
       final int basePoints = User.pointsByCategory[qrCategory] ?? 10;
       if (todayPoints >= 200) {
-        _showError('Daily points cap reached (200). Come back tomorrow!');
+        _showError('Daily points cap reached (200 pts/day). Come back tomorrow!');
         return;
       }
 
-      // Apply streak multiplier
       final int streakMultiplier = _getStreakMultiplier(user.currentStreak);
-      final int finalPoints = min(basePoints * streakMultiplier, 200 - todayPoints);
+      final int finalPoints = (basePoints * streakMultiplier).clamp(1, 200 - todayPoints);
 
-      // Check for level up
       final newTotalPoints = user.totalPoints + finalPoints;
       final newLevel = User.calculateLevel(newTotalPoints);
       final bool levelUp = newLevel != user.ecoLevel;
 
-      // Update streak
       final now = DateTime.now();
       final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       int newStreak = user.currentStreak;
@@ -133,7 +132,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         newStreak = 1;
       }
 
-      // Update user
       final updatedUser = user.copyWith(
         totalPoints: newTotalPoints,
         ecoLevel: newLevel,
@@ -145,7 +143,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       await DatabaseManager.instance.updateUser(updatedUser);
       await DatabaseManager.instance.updateRealUserInLeaderboard(updatedUser);
 
-      // Sync points to backend
       final prefs = await SharedPreferences.getInstance();
       final studentNumber = prefs.getString('student_number') ?? '';
       if (studentNumber.isNotEmpty) {
@@ -153,22 +150,20 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           studentNumber: studentNumber,
           points: finalPoints,
           category: qrCategory,
-          itemName: binId,
+          itemName: 'Bin_${widget.expectedCategory}',
         );
       }
 
-      // Save disposal record
       final disposalId = '${user.id}_${DateTime.now().millisecondsSinceEpoch}';
       await DatabaseManager.instance.insertDisposal(DisposalRecord(
         id: disposalId,
         category: qrCategory,
         pointsAwarded: finalPoints,
         timestamp: DateTime.now().toIso8601String(),
-        qrCode: qrData,
-        binName: binId,
+        qrCode: cleanData,
+        binName: 'ZOU ${widget.expectedCategory} Bin',
       ));
 
-      // Navigate to success screen
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -181,203 +176,104 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             category: qrCategory,
             streak: newStreak,
             basePoints: basePoints,
-            multiplier: streakMultiplier > 1 ? streakMultiplier : null,
+            multiplier: streakMultiplier,
           ),
         ),
       );
     } catch (e) {
-      _showError('Verification failed: $e');
+      _showError('Error processing QR verification: $e');
     }
   }
 
   int _getStreakMultiplier(int streak) {
-    if (streak >= 30) return 2;
-    if (streak >= 14) return 2;
-    if (streak >= 7) return 2;
+    if (streak >= 7) return 3;
     if (streak >= 3) return 2;
     return 1;
   }
 
   void _showError(String message) {
     setState(() => _isProcessing = false);
-    controller.start();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Verification Failed'),
-        content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Bin Verification', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(message, style: const TextStyle(fontSize: 15)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Retry'),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _isProcessing = false);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D9488),
+            ),
+            child: const Text('Try Again', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan QR Code'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Stack(
-        children: [
-          MobileScanner(
-            controller: controller,
-            onDetect: _onDetect,
+  Future<void> _pickFromGallery() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+
+      setState(() => _isProcessing = true);
+      final BarcodeCapture? capture = await controller.analyzeImage(image.path);
+
+      if (capture != null && capture.barcodes.isNotEmpty) {
+        final String? qrData = capture.barcodes.first.rawValue;
+        if (qrData != null && qrData.isNotEmpty) {
+          await _verifyQR(qrData);
+          return;
+        }
+      }
+
+      // Fallback if mobile_scanner gallery analysis didn't extract string
+      setState(() => _isProcessing = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No QR detected in image. Enter code manually below.'),
+            duration: Duration(seconds: 3),
           ),
-          // Scanner overlay
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.black54,
-            ),
-            child: Center(
-              child: Container(
-                width: 250,
-                height: 250,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.greenAccent, width: 2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-          // Instructions
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 80),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Scan the QR code on the bin',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: getProportionateScreenWidth(16),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Expected: ${widget.expectedCategory}',
-                        style: TextStyle(
-                          color: Colors.greenAccent,
-                          fontSize: getProportionateScreenWidth(14),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                if (_isProcessing)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(
-                          color: Colors.greenAccent,
-                        ),
-                        SizedBox(width: 16),
-                        Text(
-                          'Verifying...',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-          // Bottom action buttons
-          Positioned(
-            bottom: 32,
-            left: 24,
-            right: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _isProcessing ? null : _showManualEntryDialog,
-                    icon: const Icon(Icons.keyboard, size: 20),
-                    label: const Text('Enter QR Code Manually'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _isProcessing ? null : _pickFromGallery,
-                    icon: const Icon(Icons.photo_library, size: 20),
-                    label: const Text('Pick from Gallery'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.white.withOpacity(0.3)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+        );
+        await _showManualEntryDialog();
+      }
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      await _showManualEntryDialog();
+    }
   }
 
   Future<void> _showManualEntryDialog() async {
-    final controller = TextEditingController();
+    final textController = TextEditingController();
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Enter QR Code Data'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Manual QR Verification', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Paste or type the QR code data below.',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              'Enter QR code data or bin code:',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextField(
-              controller: controller,
+              controller: textController,
               autofocus: true,
-              maxLines: 3,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                hintText: 'EG_BIN001_REC_1700000000_ABC123',
+                hintText: 'e.g. EG_BIN001_${widget.expectedCategory.substring(0, 3).toUpperCase()}_1700000000_ABC',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -389,11 +285,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            onPressed: () => Navigator.pop(ctx, textController.text.trim()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D9488),
             ),
-            child: const Text('Verify'),
+            child: const Text('Verify', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -405,26 +301,205 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     }
   }
 
-  Future<void> _pickFromGallery() async {
-    try {
-      final picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+  @override
+  Widget build(BuildContext context) {
+    SizeConfig().init(context);
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Image selected. Enter the QR code data manually.'),
-          duration: Duration(seconds: 3),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                (route) => false,
+              );
+            }
+          },
         ),
-      );
-      await _showManualEntryDialog();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
-        );
-      }
-    }
+        title: const Text(
+          'Scan Bin QR Code',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.black,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: Colors.white),
+            tooltip: 'Return to Home',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, color: Colors.white),
+            onPressed: () {
+              setState(() => _torchOn = !_torchOn);
+              controller.toggleTorch();
+            },
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Live Camera Barcode Scanner
+          MobileScanner(
+            controller: controller,
+            onDetect: _onDetect,
+          ),
+
+          // Central Cutout Scanner Overlay
+          Center(
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF0D9488), width: 3),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D9488).withOpacity(0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Top Header Box
+          Positioned(
+            top: 24,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.75),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Point camera at the QR code on bin',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Target Bin: ',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                      Text(
+                        widget.expectedCategory,
+                        style: const TextStyle(
+                          color: Color(0xFF14B8A6),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Processing Indicator
+          if (_isProcessing)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF0D9488)),
+                    SizedBox(height: 16),
+                    Text(
+                      'Verifying Bin QR…',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Bottom Action Buttons
+          Positioned(
+            bottom: 32,
+            left: 20,
+            right: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isProcessing ? null : _pickFromGallery,
+                    icon: const Icon(Icons.photo_library, size: 22),
+                    label: const Text(
+                      'Scan QR from Photo Gallery',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D9488),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _showManualEntryDialog,
+                    icon: const Icon(Icons.keyboard, size: 22),
+                    label: const Text(
+                      'Enter QR Code Manually',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white60, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

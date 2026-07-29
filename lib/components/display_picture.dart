@@ -6,7 +6,7 @@ import 'package:deep_waste/constants/size_config.dart';
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/Item.dart';
 import 'package:deep_waste/models/User.dart';
-import 'package:deep_waste/screens/QRScannerScreen.dart';
+import 'package:deep_waste/screens/BinValidationScreen.dart';
 import 'package:deep_waste/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -397,8 +397,9 @@ class _DisplayPictureState extends State<DisplayPicture> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => QRScannerScreen(
-                                        expectedCategory: _selectedCategory!,
+                                      builder: (_) => BinValidationScreen(
+                                        category: _selectedCategory!,
+                                        binName: '',
                                       ),
                                     ),
                                   );

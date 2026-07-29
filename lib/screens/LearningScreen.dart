@@ -5,6 +5,7 @@ import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/screens/LessonQuizScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LearningScreen extends StatefulWidget {
   static const String routeName = '/learning';
@@ -16,11 +17,13 @@ class LearningScreen extends StatefulWidget {
   State<LearningScreen> createState() => _LearningScreenState();
 }
 
-class _LearningScreenState extends State<LearningScreen> with TickerProviderStateMixin {
+class _LearningScreenState extends State<LearningScreen>
+    with TickerProviderStateMixin {
   User? user;
   bool isLoading = true;
   late AnimationController _floatController;
   late Animation<double> _floatAnimation;
+  Set<int> _completedLessonIds = {};
 
   final List<Map<String, dynamic>> _lessons = [
     {
@@ -28,49 +31,49 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
       'title': 'Waste Basics',
       'subtitle': 'Learn about waste types',
       'icon': Icons.delete_outline,
-      'color': Color(0xFF6B7280),
+      'color': const Color(0xFF6B7280),
+      'assetImg': 'assets/images/trash.png',
       'lottie': 'assets/lottie/recycling.json',
-      'completed': true,
       'xp': 50,
     },
     {
       'id': 2,
       'title': 'Recycling 101',
-      'subtitle': 'Master the recycling process',
+      'subtitle': 'Master paper, plastic & metal',
       'icon': Icons.recycling,
-      'color': Color(0xFF3B82F6),
+      'color': const Color(0xFF3B82F6),
+      'assetImg': 'assets/images/plastic.png',
       'lottie': 'assets/lottie/recycling.json',
-      'completed': true,
       'xp': 75,
     },
     {
       'id': 3,
       'title': 'Composting',
-      'subtitle': 'Turn waste into garden gold',
+      'subtitle': 'Turn organic waste into garden gold',
       'icon': Icons.eco,
-      'color': Color(0xFF10B981),
+      'color': const Color(0xFF10B981),
+      'assetImg': 'assets/images/background.png',
       'lottie': 'assets/lottie/recycling.json',
-      'completed': false,
       'xp': 100,
     },
     {
       'id': 4,
       'title': 'E-Waste',
-      'subtitle': 'Handle electronics safely',
+      'subtitle': 'Handle electronics & batteries safely',
       'icon': Icons.devices,
-      'color': Color(0xFF8B5CF6),
+      'color': const Color(0xFF8B5CF6),
+      'assetImg': 'assets/images/cardboard.png',
       'lottie': 'assets/lottie/recycling.json',
-      'completed': false,
       'xp': 120,
     },
     {
       'id': 5,
       'title': 'Hazardous Waste',
-      'subtitle': 'Safety first with chemicals',
+      'subtitle': 'Safety first with chemicals & glass',
       'icon': Icons.warning,
-      'color': Color(0xFFEF4444),
+      'color': const Color(0xFFEF4444),
+      'assetImg': 'assets/images/glass.png',
       'lottie': 'assets/lottie/recycling.json',
-      'completed': false,
       'xp': 150,
     },
   ];
@@ -78,7 +81,8 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
   final List<Map<String, String>> _tips = [
     {
       'title': 'Did you know?',
-      'tip': 'Recycling one aluminum can saves enough energy to run a TV for 3 hours!',
+      'tip':
+          'Recycling one aluminum can saves enough energy to run a TV for 3 hours!',
     },
     {
       'title': 'Fun fact',
@@ -86,7 +90,8 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
     },
     {
       'title': 'Pro tip',
-      'tip': 'Rinse containers before recycling to avoid contaminating other materials.',
+      'tip':
+          'Rinse containers before recycling to avoid contaminating other materials.',
     },
   ];
 
@@ -112,10 +117,45 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
   Future<void> _loadData() async {
     try {
       user = await DatabaseManager.instance.getUser();
+      final prefs = await SharedPreferences.getInstance();
+      final savedCompleted =
+          prefs.getStringList('completed_lesson_ids') ?? ['1', '2'];
+      _completedLessonIds = savedCompleted.map((e) => int.parse(e)).toSet();
     } catch (e) {
       debugPrint('Error loading user: $e');
     }
     if (mounted) setState(() => isLoading = false);
+  }
+
+  Future<void> _markLessonCompleted(int lessonId) async {
+    setState(() {
+      _completedLessonIds.add(lessonId);
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'completed_lesson_ids',
+      _completedLessonIds.map((e) => e.toString()).toList(),
+    );
+  }
+
+  void _startLesson(Map<String, dynamic> lesson) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LessonQuizScreen(
+          lessonId: lesson['id'],
+          lessonTitle: lesson['title'],
+          lessonTopic: lesson['title'],
+          xpReward: lesson['xp'],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _markLessonCompleted(lesson['id']);
+      await _loadData();
+      if (widget.onQuizCompleted != null) widget.onQuizCompleted!();
+    }
   }
 
   @override
@@ -123,9 +163,10 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
     SizeConfig().init(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D9488)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0D9488)))
           : SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
@@ -134,20 +175,20 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
                   _buildHeader(),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          _buildEcoBotIntro(),
-                          const SizedBox(height: 24),
-                          _buildDailyTip(),
-                          const SizedBox(height: 24),
-                          _buildLessonPath(),
-                          const SizedBox(height: 24),
-                          _buildAchievements(),
-                          const SizedBox(height: 140),
-                        ],
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        _buildEcoBotIntro(),
+                        const SizedBox(height: 24),
+                        _buildDailyTip(),
+                        const SizedBox(height: 24),
+                        _buildLessonPath(),
+                        const SizedBox(height: 24),
+                        _buildAchievements(),
+                        const SizedBox(height: 140),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -156,8 +197,10 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
   }
 
   Widget _buildHeader() {
+    final topPadding = MediaQuery.of(context).padding.top + 10;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+      padding: EdgeInsets.fromLTRB(20, topPadding, 20, 20),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -169,7 +212,7 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            'Learn',
+            'Eco Academy',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -184,14 +227,14 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
             ),
             child: Row(
               children: [
-                const Icon(Icons.star, color: Color(0xFFF59E0B), size: 16),
+                const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
                 const SizedBox(width: 4),
                 Text(
                   '${user?.totalPoints ?? 0} XP',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -249,10 +292,10 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "Ready to learn about waste management? Let's make the planet greener together!",
+                  "All 5 lessons & quizzes are unlocked for you! Tap any lesson to test your knowledge & earn XP!",
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey.shade600,
+                    color: Colors.grey.shade700,
                     height: 1.4,
                   ),
                 ),
@@ -276,7 +319,7 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
       ),
       child: Row(
         children: [
-          const Icon(Icons.lightbulb, color: Color(0xFFF59E0B), size: 24),
+          const Icon(Icons.lightbulb_rounded, color: Color(0xFFD97706), size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -311,13 +354,32 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Lesson Path',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Lesson Path (All Unlocked)',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                '5 / 5 Unlocked',
+                style: TextStyle(
+                  color: Color(0xFF10B981),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ...List.generate(_lessons.length, (index) {
@@ -329,9 +391,10 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
     );
   }
 
-  Widget _buildLessonItem(Map<String, dynamic> lesson, int index, bool isLast) {
-    final completed = lesson['completed'] as bool;
-    final isLocked = index > 0 && !(_lessons[index - 1]['completed'] as bool);
+  Widget _buildLessonItem(
+      Map<String, dynamic> lesson, int index, bool isLast) {
+    final lessonId = lesson['id'] as int;
+    final completed = _completedLessonIds.contains(lessonId);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,96 +402,109 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
         Column(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: completed
                     ? const Color(0xFF10B981)
-                    : isLocked
-                        ? Colors.grey.shade300
-                        : lesson['color'] as Color,
+                    : lesson['color'] as Color,
                 shape: BoxShape.circle,
-                boxShadow: completed
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: (completed
+                            ? const Color(0xFF10B981)
+                            : (lesson['color'] as Color))
+                        .withOpacity(0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Center(
                 child: completed
-                    ? const Icon(Icons.check, color: Colors.white, size: 20)
-                    : isLocked
-                        ? Icon(Icons.lock, color: Colors.grey.shade500, size: 18)
-                        : Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
+                    ? const Icon(Icons.check, color: Colors.white, size: 22)
+                    : Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                        ),
+                      ),
               ),
             ),
             if (!isLast)
               Container(
-                width: 2,
-                height: 40,
-                color: completed ? const Color(0xFF10B981) : Colors.grey.shade300,
+                width: 3,
+                height: 44,
+                color:
+                    completed ? const Color(0xFF10B981) : Colors.grey.shade300,
               ),
           ],
         ),
         const SizedBox(width: 16),
         Expanded(
           child: GestureDetector(
-            onTap: isLocked ? null : () => _startLesson(lesson),
+            onTap: () => _startLesson(lesson),
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isLocked ? Colors.grey.shade100 : Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: isLocked
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: (lesson['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      lesson['icon'] as IconData,
-                      color: lesson['color'] as Color,
-                      size: 24,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      lesson['assetImg'],
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (lesson['color'] as Color).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          lesson['icon'] as IconData,
+                          color: lesson['color'] as Color,
+                          size: 24,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          lesson['title'],
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: isLocked ? Colors.grey : const Color(0xFF1F2937),
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              lesson['title'],
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (completed) ...[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.verified,
+                                  color: Color(0xFF10B981), size: 16),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           lesson['subtitle'],
                           style: TextStyle(
@@ -440,16 +516,17 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '+${lesson['xp']} XP',
                       style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                         color: Color(0xFFD97706),
                       ),
                     ),
@@ -464,17 +541,18 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
   }
 
   Widget _buildAchievements() {
-    final completedCount = _lessons.where((l) => l['completed'] as bool).length;
+    final completedCount = _completedLessonIds.length;
+    final totalCount = _lessons.length;
+    final progressFraction = (completedCount / totalCount).clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Achievements',
+          'Achievements (Realtime)',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
           ),
         ),
         const SizedBox(height: 12),
@@ -482,11 +560,11 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -495,67 +573,64 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
           child: Column(
             children: [
               SizedBox(
-                width: 100,
-                height: 100,
+                width: 90,
+                height: 90,
                 child: Lottie.asset(
-                  'assets/lottie/celebration.json',
+                  completedCount >= totalCount
+                      ? 'assets/lottie/levelup.json'
+                      : 'assets/lottie/celebration.json',
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => const Icon(
-                    Icons.emoji_events,
-                    size: 60,
+                    Icons.emoji_events_rounded,
+                    size: 72,
                     color: Color(0xFFF59E0B),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                '$completedCount / ${_lessons.length} Lessons',
+                '$completedCount / $totalCount Lessons Completed',
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Complete all lessons to become an Eco Master!',
+                completedCount >= totalCount
+                    ? '🏆 Eco Master Status Achieved! All quizzes cleared!'
+                    : 'Complete remaining quizzes to unlock Eco Master rank!',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade500,
                 ),
               ),
               const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: completedCount / _lessons.length,
-                backgroundColor: const Color(0xFFE5E7EB),
-                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0D9488)),
-                borderRadius: BorderRadius.circular(4),
-                minHeight: 8,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: progressFraction,
+                  minHeight: 10,
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF10B981),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${(progressFraction * 100).toInt()}% Completed',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF10B981),
+                ),
               ),
             ],
           ),
         ),
       ],
     );
-  }
-
-  void _startLesson(Map<String, dynamic> lesson) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LessonQuizScreen(
-          lessonId: lesson['id'],
-          lessonTitle: lesson['title'],
-          lessonTopic: lesson['title'],
-          xpReward: lesson['xp'],
-        ),
-      ),
-    );
-    
-    // Refresh data if lesson was completed
-    if (result == true) {
-      _loadData();
-      widget.onQuizCompleted?.call();
-    }
   }
 }

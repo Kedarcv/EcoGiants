@@ -116,23 +116,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return null;
   }
 
-  Color _getRankColor(int rank) {
-    if (rank == 1) return Colors.amber.shade100;
-    if (rank == 2) return Colors.grey.shade200;
-    if (rank == 3) return Colors.orange.shade100;
-    return Colors.white;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leaderboard'),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
       ),
-      backgroundColor: const Color(0xfff5f5f5),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -324,8 +314,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isRealUser
-                                ? Colors.green.shade50
-                                : (isTop3 ? _getRankColor(rank) : Colors.white),
+                                ? const Color(0xFF10B981).withOpacity(0.15)
+                                : Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(12),
                             border: isRealUser
                                 ? Border.all(color: Colors.green.shade200)

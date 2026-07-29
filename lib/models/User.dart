@@ -26,9 +26,9 @@ class User {
     'E-Waste': 40,
     'Recyclable': 30,
     'Organic': 20,
-    'General': 10,
+    'General': 2,
     // Legacy mapping for old categories
-    'Trash': 10,
+    'Trash': 2,
     'Plastic': 30,
     'Paper': 30,
     'Glass': 30,

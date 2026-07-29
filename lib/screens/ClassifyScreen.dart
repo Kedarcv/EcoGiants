@@ -61,9 +61,9 @@ class _ClassifyScreenState extends State<ClassifyScreen> {
       'icon': Icons.delete_outline,
       'color': Color(0xFF6B7280),
       'bgColor': Color(0xFFF9FAFB),
-      'description': 'This is general waste. Place it in the black bin.',
-      'points': 10,
-      'binLabel': 'Black General Bin',
+      'description': 'This is general non-recyclable waste. Place it in the black bin.',
+      'points': 2,
+      'binLabel': 'Black General Waste Bin',
     },
   };
 
@@ -137,7 +137,8 @@ class _ClassifyScreenState extends State<ClassifyScreen> {
   bool get _isRecyclable {
     return _classifiedCategory == 'Recyclable' ||
         _classifiedCategory == 'Organic' ||
-        _classifiedCategory == 'E-Waste';
+        _classifiedCategory == 'E-Waste' ||
+        _classifiedCategory == 'General';
   }
 
   @override
@@ -569,11 +570,11 @@ class _ClassifyScreenState extends State<ClassifyScreen> {
                 );
               },
               icon: const Icon(Icons.location_on, color: Colors.white),
-              label: const Text(
-                'Find Nearest Bin',
-                style: TextStyle(
+              label: Text(
+                _classifiedCategory == 'General' ? 'Find Black Bin & Earn 2 Pts' : 'Find Nearest Bin & Earn Points',
+                style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
@@ -609,21 +610,21 @@ class _ClassifyScreenState extends State<ClassifyScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.orange.shade50,
+              color: Colors.red.shade50,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red.shade200),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.orange.shade700),
+                Icon(Icons.warning_amber_rounded, color: Colors.red.shade700),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _classifiedCategory == 'Hazardous'
-                        ? 'Hazardous items cannot be disposed in regular bins. Please take to a designated facility.'
-                        : 'General waste goes in the black bin. No points available for general waste.',
+                    'Hazardous waste items cannot be disposed in regular campus bins. Please take to a designated safety disposal facility.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.orange.shade800,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red.shade900,
                     ),
                   ),
                 ),
