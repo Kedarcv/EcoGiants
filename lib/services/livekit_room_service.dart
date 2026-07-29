@@ -208,9 +208,9 @@ class LiveKitRoomService extends ChangeNotifier {
   }
 
   Future<void> switchCamera() async {
-    final track = _room.localParticipant?.videoTrackPublications.firstOrNull?.track
-        as LocalVideoTrack?;
-    if (track == null) return;
+    final publication = _room.localParticipant?.videoTrackPublications.firstOrNull;
+    final track = publication?.track;
+    if (track is! LocalVideoTrack) return;
 
     final devices = await Hardware.instance.videoInputs();
     if (devices.isEmpty) return;

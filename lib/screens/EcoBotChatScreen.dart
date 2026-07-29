@@ -371,7 +371,6 @@ class _EcoBotChatScreenState extends State<EcoBotChatScreen>
 
   Widget _buildMessageBubble(_ChatBubble msg, int index) {
     final isUser = msg.isUser;
-    final isLast = index == _messages.length - 1;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 200),

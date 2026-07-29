@@ -9,7 +9,6 @@ import 'package:deep_waste/screens/QRCodeGeneratorScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   static String routeName = "/home_screen";
@@ -163,7 +162,6 @@ class HomeScreenState extends State<HomeScreen> {
 
   Widget _buildGreeting() {
     final level = user?.ecoLevel ?? 'Seedling';
-    final points = user?.totalPoints ?? 0;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

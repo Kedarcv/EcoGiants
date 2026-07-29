@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:deep_waste/services/api_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:gemini_live/gemini_live.dart';
+import 'package:gemini_live/src/live_service.dart';
+import 'gemini_config.dart';
 
 class GeminiLiveService {
-  WebSocketChannel? _channel;
+  LiveService? _liveService;
+  LiveSession? _session;
   bool _connected = false;
-  bool _connecting = false;
-  String? _errorMessage;
-  Completer<void>? _readyCompleter;
 
   final StreamController<Uint8List> _audioOutputController =
       StreamController<Uint8List>.broadcast();
@@ -19,82 +18,125 @@ class GeminiLiveService {
   Stream<Uint8List> get audioOutput => _audioOutputController.stream;
   Stream<Map<String, dynamic>> get events => _eventController.stream;
   bool get isConnected => _connected;
-  bool get isConnecting => _connecting;
-  String? get errorMessage => _errorMessage;
 
   Future<void> connect({required String studentNumber}) async {
-    if (_connecting) return;
-    _connecting = true;
-    _errorMessage = null;
-    _readyCompleter = Completer<void>();
-
     try {
-      final wsUrl = ApiService.baseUrl
-          .replaceFirst('https://', 'wss://')
-          .replaceFirst('http://', 'ws://');
-      final uri = Uri.parse('$wsUrl/ws');
-
-      _channel = WebSocketChannel.connect(uri);
-
-      await _channel!.ready;
-
-      _channel!.stream.listen(
-        (data) {
-          if (data is List<int>) {
-            _audioOutputController.add(Uint8List.fromList(data));
-          } else if (data is String) {
-            try {
-              final event = jsonDecode(data) as Map<String, dynamic>;
-              if (event['type'] == 'ready') {
-                _connected = true;
-                _connecting = false;
-                _readyCompleter?.complete();
-              }
-              _eventController.add(event);
-            } catch (_) {}
-          }
-        },
-        onError: (error) {
-          _errorMessage = error.toString();
-          _connected = false;
-          _connecting = false;
-          _readyCompleter?.completeError(error);
-        },
-        onDone: () {
-          _connected = false;
-          _connecting = false;
-        },
-        cancelOnError: false,
+      if (kDebugMode) print('Connecting to v1alpha Gemini Live API...');
+      _liveService = LiveService(
+        apiKey: GeminiConfig.apiKey,
+        apiVersion: 'v1alpha',
       );
 
-      await _readyCompleter!.future.timeout(const Duration(seconds: 30));
+      final params = LiveConnectParameters(
+        model: GeminiConfig.model,
+        config: GenerationConfig(
+          responseModalities: [Modality.AUDIO],
+        ),
+        systemInstruction: Content(
+          parts: [
+            Part(
+              text:
+                  'You are Eco-Giant AI Tutor, a friendly sustainability and waste sorting assistant for Zimbabwe Open University (ZOU) students. ALWAYS communicate in clear, natural English. Keep responses concise, clear, and engaging.',
+            ),
+          ],
+        ),
+        callbacks: LiveCallbacks(
+          onOpen: () {
+            if (kDebugMode) print('Gemini Live WS Connected!');
+            _connected = true;
+            _eventController.add({'type': 'ready'});
+          },
+          onMessage: (message) {
+            _handleServerMessage(message);
+          },
+          onError: (error, stackTrace) {
+            if (kDebugMode) print('Gemini Live WS Error: $error');
+            _connected = false;
+            _eventController.add({'type': 'error', 'error': error.toString()});
+          },
+          onClose: (code, reason) {
+            if (kDebugMode) print('Gemini Live WS Closed: $code / $reason');
+            _connected = false;
+            _eventController.add({'type': 'disconnected'});
+          },
+        ),
+      );
+
+      _session = await _liveService!.connect(params);
+      _connected = true;
     } catch (e) {
       _connected = false;
-      _connecting = false;
-      _errorMessage = e.toString();
       if (kDebugMode) print('Gemini connect error: $e');
+      rethrow;
+    }
+  }
+
+  void _handleServerMessage(LiveServerMessage message) {
+    try {
+      final content = message.serverContent;
+      if (content != null) {
+        if (content.outputTranscription?.text != null &&
+            content.outputTranscription!.text!.isNotEmpty) {
+          _eventController.add({
+            'type': 'gemini',
+            'text': content.outputTranscription!.text,
+          });
+        }
+
+        final modelTurn = content.modelTurn;
+        if (modelTurn != null && modelTurn.parts != null) {
+          for (final part in modelTurn.parts!) {
+            final inlineData = part.inlineData;
+            if (inlineData != null && inlineData.data.isNotEmpty) {
+              final audioBytes = base64Decode(inlineData.data);
+              _audioOutputController.add(audioBytes);
+              _eventController.add({'type': 'gemini', 'text': 'Eco is speaking…'});
+            }
+
+            if (part.text != null && part.text!.isNotEmpty) {
+              _eventController.add({'type': 'gemini', 'text': part.text});
+            }
+          }
+        }
+
+        if (content.turnComplete == true) {
+          _eventController.add({'type': 'turn_complete'});
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error handling Gemini server message: $e');
     }
   }
 
   void sendAudio(Uint8List pcmData) {
-    _channel?.sink.add(pcmData);
+    if (_connected && _session != null) {
+      _session!.sendAudio(pcmData);
+    }
   }
 
-  void sendVideoFrame(Uint8List jpegData) {
-    final base64Str = base64Encode(jpegData);
-    final message = jsonEncode({'type': 'image', 'data': base64Str});
-    _channel?.sink.add(message);
+  void sendVideoFrame(Uint8List jpegBytes) {
+    if (_connected && _session != null) {
+      final base64Video = base64Encode(jpegBytes);
+      final message = LiveClientMessage(
+        realtimeInput: LiveClientRealtimeInput(
+          video: Blob(mimeType: 'image/jpeg', data: base64Video),
+        ),
+      );
+      _session!.sendMessage(message);
+    }
   }
 
   void sendText(String text) {
-    _channel?.sink.add(text);
+    if (_connected && _session != null) {
+      _session!.sendText(text);
+      _eventController.add({'type': 'user', 'text': text});
+    }
   }
 
   Future<void> disconnect() async {
     _connected = false;
-    _connecting = false;
-    await _channel?.sink.close();
-    _channel = null;
+    await _session?.close();
+    _session = null;
   }
 
   void dispose() {

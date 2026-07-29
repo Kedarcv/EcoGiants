@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:deep_waste/constants/size_config.dart';
 import 'package:flutter/material.dart';

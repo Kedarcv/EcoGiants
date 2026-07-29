@@ -1,6 +1,5 @@
 import 'package:deep_waste/database_manager.dart';
 import 'package:deep_waste/models/User.dart';
-import 'package:deep_waste/screens/MainNavigationScreen.dart';
 import 'package:deep_waste/screens/SettingsScreen.dart';
 import 'package:deep_waste/screens/UserScreen.dart';
 import 'package:flutter/material.dart';

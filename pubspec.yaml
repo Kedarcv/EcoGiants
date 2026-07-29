@@ -70,7 +70,8 @@ dependencies:
   latlong2: ^0.9.1
   # QR Code generation for test bins
   qr_flutter: ^4.1.0
-  # Gemini Live WebSocket + audio
+  # Gemini Live API package
+  gemini_live: ^0.1.0
   web_socket_channel: ^3.0.1
   flutter_sound: ^9.15.0
   just_audio: ^0.9.42

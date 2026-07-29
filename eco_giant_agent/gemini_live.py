@@ -51,9 +51,10 @@ class GeminiLive:
         logger.info(f"Connecting to Gemini Live with model={self.model}")
         try:
           async with self.client.aio.live.connect(model=self.model, config=config) as session:
+            event_queue = asyncio.Queue()
             logger.info("Gemini Live session opened successfully")
             await event_queue.put({"type": "ready"})
-            
+
             async def send_audio():
                 try:
                     while True:
@@ -89,8 +90,6 @@ class GeminiLive:
                     logger.debug("send_text task cancelled")
                 except Exception as e:
                     logger.error(f"send_text error: {e}\n{traceback.format_exc()}")
-
-            event_queue = asyncio.Queue()
 
             async def receive_loop():
                 try:

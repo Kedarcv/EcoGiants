@@ -331,7 +331,7 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
 
   Widget _buildLessonItem(Map<String, dynamic> lesson, int index, bool isLast) {
     final completed = lesson['completed'] as bool;
-    final isLocked = false;
+    final isLocked = index > 0 && !(_lessons[index - 1]['completed'] as bool);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -557,119 +557,5 @@ class _LearningScreenState extends State<LearningScreen> with TickerProviderStat
       _loadData();
       widget.onQuizCompleted?.call();
     }
-  }
-
-  Widget _buildLessonSheet(Map<String, dynamic> lesson) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.5,
-      maxChildSize: 0.9,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Lottie.asset(
-                    lesson['lottie'],
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Icon(
-                      lesson['icon'],
-                      size: 80,
-                      color: lesson['color'],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  lesson['title'],
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  lesson['subtitle'],
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: EcoBotCharacter(
-                    pose: EcoBotPose.teaching,
-                    size: 100,
-                    animated: true,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "Let's learn about ${lesson['title'].toLowerCase()} together!",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF374151),
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Lesson coming soon!'),
-                          backgroundColor: Color(0xFF0D9488),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Start Lesson',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 }

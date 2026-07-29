@@ -57,7 +57,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
 
     // Show permissions screen before navigating to register
-    final granted = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const _PermissionsScreen()),
     );

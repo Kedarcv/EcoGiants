@@ -31,7 +31,6 @@ class _LessonQuizScreenState extends State<LessonQuizScreen> {
   int _currentQuestionIndex = 0;
   int _score = 0;
   bool _isLoading = true;
-  bool _isLoadingMore = false;
   bool _isAnswering = false;
   String? _selectedAnswer;
   bool? _isCorrect;
