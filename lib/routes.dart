@@ -1,5 +1,6 @@
 import 'package:deep_waste/screens/DisposalHistoryScreen.dart';
 import 'package:deep_waste/screens/EcoBotChatScreen.dart';
+import 'package:deep_waste/screens/EnergyDetailsScreen.dart';
 import 'package:deep_waste/screens/HomeScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
 import 'package:deep_waste/screens/LearningScreen.dart';
@@ -10,11 +11,13 @@ import 'package:deep_waste/screens/QRScannerScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
 import 'package:deep_waste/screens/SettingsScreen.dart';
 import 'package:deep_waste/screens/SplashScreen.dart';
+import 'package:deep_waste/screens/SustainabilityAnalyticsScreen.dart';
 import 'package:deep_waste/screens/VerificationSuccessScreen.dart';
+import 'package:deep_waste/screens/WasteDetailsScreen.dart';
+import 'package:deep_waste/screens/WaterDetailsScreen.dart';
+import 'package:deep_waste/screens/WaterLeakReportScreen.dart';
 import 'package:flutter/widgets.dart';
 
-// We use name route
-// All our routes will be available here
 final Map<String, WidgetBuilder> routes = {
   SplashScreen.routeName: (context) => const SplashScreen(),
   MainNavigationScreen.routeName: (context) => const MainNavigationScreen(),
@@ -26,9 +29,12 @@ final Map<String, WidgetBuilder> routes = {
   LiveAiScreen.routeName: (context) => const LiveAiScreen(),
   EcoBotChatScreen.routeName: (context) => const EcoBotChatScreen(),
   QRCodeGeneratorScreen.routeName: (context) => const QRCodeGeneratorScreen(),
+  SustainabilityAnalyticsScreen.routeName: (context) => const SustainabilityAnalyticsScreen(),
+  WaterLeakReportScreen.routeName: (context) => const WaterLeakReportScreen(),
+  WaterDetailsScreen.routeName: (context) => const WaterDetailsScreen(),
+  EnergyDetailsScreen.routeName: (context) => const EnergyDetailsScreen(),
+  WasteDetailsScreen.routeName: (context) => const WasteDetailsScreen(),
   SettingsScreen.routeName: (context) {
-    // SettingsScreen requires a user argument, so this route needs special handling
-    // In practice, use MaterialPageRoute directly
     throw UnsupportedError('SettingsScreen requires a User argument');
   },
   QRScannerScreen.routeName: (context) {

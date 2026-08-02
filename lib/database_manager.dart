@@ -3,6 +3,7 @@ import 'package:deep_waste/models/Category.dart';
 import 'package:deep_waste/models/Item.dart';
 import 'package:deep_waste/models/User.dart';
 import 'package:deep_waste/models/disposal_record.dart';
+import 'package:deep_waste/models/water_leak_report.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -104,6 +105,20 @@ class DatabaseManager {
         print("Repairing User table: adding missing onboardingComplete column");
         await db.execute('ALTER TABLE User ADD COLUMN onboardingComplete INTEGER DEFAULT 0');
       }
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS water_leaks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          imagePath TEXT,
+          latitude REAL,
+          longitude REAL,
+          locationName TEXT,
+          severity TEXT,
+          aiReport TEXT,
+          status TEXT,
+          timestamp TEXT
+        )
+      ''');
     } catch (e) {
       print("Schema repair warning: $e");
     }
@@ -267,6 +282,11 @@ class DatabaseManager {
     );
   }
 
+  Future<void> updateUserPoints(int additionalPoints) async {
+    final db = await instance.database;
+    await db.rawUpdate('UPDATE User SET totalPoints = totalPoints + ?', [additionalPoints]);
+  }
+
   Future<int> deleteUser(int userId) async {
     final db = await instance.database;
     return await db.delete(
@@ -374,5 +394,27 @@ class DatabaseManager {
       breakdown[row['category'] as String] = (row['count'] as int?) ?? 0;
     }
     return breakdown;
+  }
+
+  // ---- Water Leak Reports ----
+  Future<int> insertWaterLeak(WaterLeakReport report) async {
+    final db = await instance.database;
+    return await db.insert('water_leaks', report.toMap());
+  }
+
+  Future<List<WaterLeakReport>> getWaterLeaks() async {
+    final db = await instance.database;
+    final maps = await db.query('water_leaks', orderBy: 'id DESC');
+    return maps.map((m) => WaterLeakReport.fromMap(m)).toList();
+  }
+
+  Future<void> updateWaterLeakStatus(int id, String newStatus) async {
+    final db = await instance.database;
+    await db.update(
+      'water_leaks',
+      {'status': newStatus},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

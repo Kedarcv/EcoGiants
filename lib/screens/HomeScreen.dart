@@ -8,8 +8,9 @@ import 'package:deep_waste/screens/DisposalHistoryScreen.dart';
 import 'package:deep_waste/screens/LeaderboardScreen.dart';
 import 'package:deep_waste/screens/LearningScreen.dart';
 import 'package:deep_waste/screens/LiveAiPrejoinScreen.dart';
-import 'package:deep_waste/screens/QRCodeGeneratorScreen.dart';
 import 'package:deep_waste/screens/RewardsScreen.dart';
+import 'package:deep_waste/screens/SustainabilityAnalyticsScreen.dart';
+import 'package:deep_waste/screens/WaterLeakReportScreen.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -95,6 +96,11 @@ class HomeScreenState extends State<HomeScreen> {
                         children: [
                           // Quick Action Tools (Squircle Grid)
                           _buildQuickActionsGrid(),
+
+                          const SizedBox(height: 20),
+
+                          // ZOU Sustainability Analytics Banner
+                          _buildAnalyticsBanner(),
 
                           const SizedBox(height: 24),
 
@@ -729,14 +735,14 @@ class HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(width: 12),
             _buildSquircleActionItem(
-              icon: Icons.qr_code_2_rounded,
-              label: 'Test Bin QR',
-              bgColor: const Color(0xFFF1F5F9),
-              accentColor: const Color(0xFF535068),
-              dotColor: const Color(0xFF535068),
+              icon: Icons.water_drop_rounded,
+              label: 'Report Leak',
+              bgColor: const Color(0xFFE0F2FE),
+              accentColor: const Color(0xFF0284C7),
+              dotColor: const Color(0xFF0284C7),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const QRCodeGeneratorScreen()),
+                MaterialPageRoute(builder: (_) => const WaterLeakReportScreen()),
               ),
             ),
           ],
@@ -802,7 +808,6 @@ class HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
                       ),
                     ),
                   ],
@@ -810,6 +815,75 @@ class HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsBanner() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SustainabilityAnalyticsScreen(),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0D9488), Color(0xFF16A34A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF16A34A).withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.analytics_rounded,
+                  color: Colors.white, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ZOU Sustainability Analytics',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'View campus carbon offset & waste diversion data →',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
